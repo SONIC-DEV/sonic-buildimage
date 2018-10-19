@@ -33,6 +33,10 @@ def check_property(p):
     # Try to remove trailing _lane<digit>_[cx]e<digits>
     if re.sub(r"_lane\d_[cx]e\d+$", "", p) in permitted_properties:
         return True
+    # Try to remove trailing {<digit}
+    if re.sub(r"{[0-9]+}", "", p) in permitted_properties:
+        return True
+
     return False
 
 def check_file(file_name):

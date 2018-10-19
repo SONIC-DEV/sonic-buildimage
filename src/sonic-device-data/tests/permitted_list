@@ -132,3 +132,14 @@ xgxs_lcpll_xtal_refclk
 xgxs_pdetect_1
 xgxs_rx_lane_map
 xgxs_tx_lane_map
+ccm_dma_enable
+ccmdma_intr_enable
+phy_enable
+phy_null
+pll_bypass
+init_all_modules
+serdes_core_tx_polarity_flip_physical
+serdes_core_rx_polarity_flip_physical
+dpr_clock_frequency
+device_clock_frequency
+port_flex_enable
