@@ -244,10 +244,9 @@ sudo dpkg --root=$FILESYSTEM_ROOT -P {{ debname }}
 
 sudo rm -f $FILESYSTEM_ROOT/usr/sbin/policy-rc.d
 
-## Revise /etc/init.d/networking for Arista switches
-if [ "$image_type" = "aboot" ]; then
-    sudo sed -i 's/udevadm settle/udevadm settle -E \/sys\/class\/net\/eth0/' $FILESYSTEM_ROOT/etc/init.d/networking
-fi
+## Revise /etc/init.d/networking
+sudo sed -i 's/udevadm settle/udevadm settle -E \/sys\/class\/net\/eth0/' $FILESYSTEM_ROOT/etc/init.d/networking
+
 
 # Service to update the sshd config file based on database changes for Arista devices
 sudo cp $IMAGE_CONFIGS/ssh/sshd-config-updater.service $FILESYSTEM_ROOT/etc/systemd/system
