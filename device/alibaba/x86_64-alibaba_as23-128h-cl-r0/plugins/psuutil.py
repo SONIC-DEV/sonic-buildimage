@@ -36,7 +36,17 @@ class PsuUtil(PsuBase):
         Retrieves the number of PSUs available on the device
         :return: An integer, the number of PSUs available on the device
         """
-        return 2
+
+        num_psus = 6
+
+        try:
+            # Request and validate sensor's information
+            self.fru_status_list, self.psu_info_list = self.request_data()
+            num_psus = len(self.psu_info_list)
+        except:
+            return num_psus
+
+        return num_psus
 
     def get_psu_status(self, index):
         """
@@ -64,7 +74,7 @@ class PsuUtil(PsuBase):
                     psu_power_status = True
 
         except:
-            print "Error: Unable to access PSU power status"
+            print("Error: Unable to access PSU power status")
             return False
 
         return psu_power_status
@@ -95,7 +105,7 @@ class PsuUtil(PsuBase):
                     psu_presence_status = True
 
         except:
-            print "Error: Unable to access PSU presence status"
+            print("Error: Unable to access PSU presence status")
             return False
 
         return psu_presence_status
