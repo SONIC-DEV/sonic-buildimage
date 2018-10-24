@@ -41,7 +41,7 @@ class FanUtil():
             Get the number of fans
             :return: int num_fans
         """
-        num_fans = 8
+        num_fans = 10
 
         return num_fans
 
