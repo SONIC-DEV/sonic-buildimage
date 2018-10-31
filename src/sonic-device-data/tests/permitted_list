@@ -143,3 +143,9 @@ serdes_core_rx_polarity_flip_physical
 dpr_clock_frequency
 device_clock_frequency
 port_flex_enable
+help_cli_enable
+ifp_inports_support_enable
+memlist_enable
+pbmp_gport_stack.0
+reglist_enable
+cls_cmd_daemon
