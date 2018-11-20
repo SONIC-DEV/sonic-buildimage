@@ -43,6 +43,8 @@ class PsuUtil(PsuBase):
             # Request and validate sensor's information
             self.fru_status_list, self.psu_info_list = self.request_data()
             num_psus = len(self.psu_info_list)
+            for psu_dict in self.psu_info_list:
+                num_psus = num_psus - 1 if psu_dict.keys() == [] else num_psus
         except:
             return num_psus
 
