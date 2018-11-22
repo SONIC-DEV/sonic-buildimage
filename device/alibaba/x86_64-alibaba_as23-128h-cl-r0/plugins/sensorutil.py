@@ -2,13 +2,13 @@
 
 import requests
 
+
 class SensorUtil():
     """Platform-specific SensorUtil class"""
 
     def __init__(self):
         self.sensor_url = "http://[fe80::1:1%eth0.4088]:8080/api/sys/sensors"
         self.sensor_info_list = None
-
 
     def request_data(self):
         # Reqest data from BMC if not exist.
@@ -18,30 +18,28 @@ class SensorUtil():
             self.sensor_info_list = sensor_json.get('Information')
         return self.sensor_info_list
 
-
     def input_type_selector(self, unit):
         # Set input type.
         return {
-            "C"     : "temperature",
-            "V"     : "voltage",
-            "RPM"   : "fan_speed",
-            "A"     : "current",
-            "W"     : "power"
-        }.get(unit, unit)  
+            "C": "temperature",
+            "V": "voltage",
+            "RPM": "fan_speed",
+            "A": "current",
+            "W": "power"
+        }.get(unit, unit)
 
-
-    def get_num_sensors(self):     
+    def get_num_sensors(self):
         """   
             Get the number of sensors
             :return: int num_sensors
         """
-        
+
         num_sensors = 0
         try:
             # Request and validate sensor's information
             self.sensor_info_list = self.request_data()
-            
-            # Get number of sensors. 
+
+            # Get number of sensors.
             num_sensors = len(self.sensor_info_list)
         except:
             print "Error: Unable to access sensor information"
@@ -49,8 +47,7 @@ class SensorUtil():
 
         return num_sensors
 
-
-    def get_sensor_input_num(self, index):     
+    def get_sensor_input_num(self, index):
         """   
             Get the number of the input items of the specified sensor
             :return: int input_num
@@ -67,9 +64,8 @@ class SensorUtil():
         except:
             print "Error: Unable to access sensor information"
             return 0
-            
-        return input_num
 
+        return input_num
 
     def get_sensor_name(self, index):
         """   
@@ -91,7 +87,6 @@ class SensorUtil():
             return "N/A"
 
         return sensor_name
-
 
     def get_sensor_input_name(self, sensor_index, input_index):
         """
@@ -117,7 +112,6 @@ class SensorUtil():
             return "N/A"
 
         return sensor_input_name
-
 
     def get_sensor_input_type(self, sensor_index, input_index):
         """
@@ -146,7 +140,6 @@ class SensorUtil():
 
         return sensor_input_type
 
-
     def get_sensor_input_value(self, sensor_index, input_index):
         """
             Get the current value of the input item, the unit is "V" or "C"
@@ -167,13 +160,13 @@ class SensorUtil():
             sensor_data_key = sensor_data.keys()
             sensor_input_raw = sensor_data.get(sensor_data_key[input_index-1])
             sensor_data_str = sensor_input_raw.split()
-            sensor_input_value = float(sensor_data_str[0]) if sensor_data_str[0] != "N/A" else 0 
+            sensor_input_value = float(
+                sensor_data_str[0]) if sensor_data_str[0] != "N/A" else 0
         except:
             print "Error: Unable to access sensor information"
             return 0
 
         return sensor_input_value
-
 
     def get_sensor_input_low_threshold(self, sensor_index, input_index):
         """
@@ -196,15 +189,20 @@ class SensorUtil():
             sensor_data_key = sensor_data.keys()
             sensor_input_raw = sensor_data.get(sensor_data_key[input_index-1])
             sensor_data_str = sensor_input_raw.split()
-            indices = [i for i, s in enumerate(sensor_data_str) if 'min' in s or 'low' in s]
-            sensor_input_low_threshold = float(sensor_data_str[indices[0] + 2]) if len(indices) != 0 else 0
-
+            indices = [i for i, s in enumerate(
+                sensor_data_str) if 'min' in s or 'low' in s]
+            l_thres = float(
+                sensor_data_str[indices[0] + 2]) if len(indices) != 0 else 0
+            unit = sensor_data_str[indices[0] +
+                                   3] if len(indices) != 0 else None
+            if unit is not None and len(unit) > 1:
+                sensor_input_low_threshold = l_thres * \
+                    1000 if str(unit[0]).lower() == 'k' else l_thres
         except:
             print "Error: Unable to access sensor information"
             return 0
 
         return sensor_input_low_threshold
-
 
     def get_sensor_input_high_threshold(self, sensor_index, input_index):
         """
@@ -223,12 +221,19 @@ class SensorUtil():
             del sensor_data["name"]
             del sensor_data["Adapter"]
 
-            # Get sensor's input high threshold.            
+            # Get sensor's input high threshold.
             sensor_data_key = sensor_data.keys()
             sensor_input_raw = sensor_data.get(sensor_data_key[input_index-1])
             sensor_data_str = sensor_input_raw.split()
-            indices = [i for i, s in enumerate(sensor_data_str) if 'max' in s or 'high' in s]
-            sensor_input_high_threshold = float(sensor_data_str[indices[0] + 2]) if len(indices) != 0 else 0
+            indices = [i for i, s in enumerate(
+                sensor_data_str) if 'max' in s or 'high' in s]
+            h_thres = float(
+                sensor_data_str[indices[0] + 2]) if len(indices) != 0 else 0
+            unit = sensor_data_str[indices[0] +
+                                   3] if len(indices) != 0 else None
+            if unit is not None and len(unit) > 1:
+                sensor_input_high_threshold = h_thres * \
+                    1000 if str(unit[0]).lower() == 'k' else h_thres
 
         except:
             print "Error: Unable to access sensor information"
