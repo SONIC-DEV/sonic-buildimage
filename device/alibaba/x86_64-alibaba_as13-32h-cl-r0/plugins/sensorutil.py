@@ -240,3 +240,46 @@ class SensorUtil():
             return 0
 
         return sensor_input_high_threshold
+
+    def get_all(self):
+
+        all_sensor_dict = dict()
+
+        # Request sensor's information.
+        self.sensor_info_list = self.request_data()
+        for sensor_data in self.sensor_info_list:
+            sensor_name = sensor_data.get('name')
+            sensor_info = sensor_data.copy()
+
+            # Remove none unuse key.
+            del sensor_info["name"]
+            del sensor_info["Adapter"]
+
+            # Set sensor data.
+            sensor_dict = dict()
+            for k, v in sensor_info.items():
+                sensor_i_dict = dict()
+                sensor_data_str = v.split()
+                indices_h = [i for i, s in enumerate(
+                    sensor_data_str) if 'max' in s or 'high' in s]
+                indices_l = [i for i, s in enumerate(
+                    sensor_data_str) if 'min' in s or 'low' in s]
+                h_thres = float(
+                    sensor_data_str[indices_h[0] + 2]) if len(indices_h) != 0 else 0
+                l_thres = float(
+                    sensor_data_str[indices_l[0] + 2]) if len(indices_l) != 0 else 0
+                thres_unit = sensor_data_str[-1]
+
+                sensor_i_dict["Type"] = self.input_type_selector(
+                    sensor_data_str[1])
+                sensor_i_dict["Value"] = float(
+                    sensor_data_str[0]) if sensor_data_str[0] != "N/A" else 0
+                sensor_i_dict["HighThd"] = h_thres * \
+                    1000 if str(thres_unit[0]).lower() == 'k' else h_thres
+                sensor_i_dict["LowThd"] = l_thres * \
+                    1000 if str(thres_unit[0]).lower() == 'k' else l_thres
+                sensor_dict[k] = sensor_i_dict
+
+            all_sensor_dict[sensor_name] = sensor_dict
+
+        return all_sensor_dict
