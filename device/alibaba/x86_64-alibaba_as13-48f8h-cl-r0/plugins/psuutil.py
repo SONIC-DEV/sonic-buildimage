@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+__author__ = 'Wirut G.<wgetbumr@celestica.com>'
+__license__ = "GPL"
+__version__ = "0.1.1"
+__status__ = "Development"
+
 import requests
 import re
 
@@ -14,8 +19,8 @@ class PsuUtil(PsuBase):
 
     def __init__(self):
         PsuBase.__init__(self)
-        self.fru_status_url = "http://[fe80::1:1%eth0.4088]:8080/api/sys/fruid/status"
-        self.psu_info_url = "http://[fe80::1:1%eth0.4088]:8080/api/sys/fruid/psu"
+        self.fru_status_url = "http://240.1.1.1:8080/api/sys/fruid/status"
+        self.psu_info_url = "http://240.1.1.1:8080/api/sys/fruid/psu"
 
         self.fru_status_list = None
         self.psu_info_list = None
