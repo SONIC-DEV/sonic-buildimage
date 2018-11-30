@@ -24,7 +24,6 @@ class SfpUtil(SfpUtilBase):
     _port_name = ""
     _port_to_eeprom_mapping = {}
     _port_to_i2cbus_mapping = {}
-    
 
     @property
     def port_start(self):
@@ -53,13 +52,22 @@ class SfpUtil(SfpUtilBase):
             self._port_name = "SFP" + str(port_num)
         return self._port_name
 
+    def get_eeprom_dom_raw(self, port_num):
+        if port_num in self.qsfp_ports:
+            # QSFP DOM EEPROM is also at addr 0x50 and thus also stored in eeprom_ifraw
+            return None
+        else:
+            # Read dom eeprom at addr 0x51
+            return self._read_eeprom_devid(port_num, self.DOM_EEPROM_ADDR, 256)
+
     def __init__(self):
         # Override port_to_eeprom_mapping for class initialization
         eeprom_path = '/sys/bus/i2c/devices/i2c-{0}/{0}-0050/eeprom'
 
         for x in range(self.PORT_START, self.PORT_END+1):
             self.port_to_i2cbus_mapping[x] = (x + self.EEPROM_OFFSET)
-            self.port_to_eeprom_mapping[x] = eeprom_path.format(x + self.EEPROM_OFFSET)
+            self.port_to_eeprom_mapping[x] = eeprom_path.format(
+                x + self.EEPROM_OFFSET)
         SfpUtilBase.__init__(self)
 
     def get_presence(self, port_num):
@@ -75,7 +83,7 @@ class SfpUtil(SfpUtilBase):
 
         # Read status
         try:
-            reg_file = open(reg_path)                    
+            reg_file = open(reg_path)
             content = reg_file.readline().rstrip()
             reg_value = int(content)
         except IOError as e:
@@ -98,7 +106,8 @@ class SfpUtil(SfpUtilBase):
 
         try:
             port_name = self.get_port_name(port_num)
-            reg_file = open("/".join([self.PORT_INFO_PATH, port_name, "qsfp_lpmode"]), "r+")
+            reg_file = open(
+                "/".join([self.PORT_INFO_PATH, port_name, "qsfp_lpmode"]), "r+")
         except IOError as e:
             print "Error: unable to open file: %s" % str(e)
             return False
@@ -118,7 +127,8 @@ class SfpUtil(SfpUtilBase):
 
         try:
             port_name = self.get_port_name(port_num)
-            reg_file = open("/".join([self.PORT_INFO_PATH, port_name, "qsfp_reset"]), "w")
+            reg_file = open(
+                "/".join([self.PORT_INFO_PATH, port_name, "qsfp_reset"]), "w")
         except IOError as e:
             print "Error: unable to open file: %s" % str(e)
             return False
@@ -133,7 +143,8 @@ class SfpUtil(SfpUtilBase):
 
         # Flip the bit back high and write back to the register to take port out of reset
         try:
-            reg_file = open("/".join([self.PORT_INFO_PATH, port_name, "qsfp_reset"]), "w")
+            reg_file = open(
+                "/".join([self.PORT_INFO_PATH, port_name, "qsfp_reset"]), "w")
         except IOError as e:
             print "Error: unable to open file: %s" % str(e)
             return False
