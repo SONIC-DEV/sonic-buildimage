@@ -250,6 +250,8 @@ class FanUtil():
         # Set fan FRU data.
         fan_fru_dict = dict()
         for fan_fru in self.fru_data_list:
+            if len(fan_fru) == 0:
+                continue
             fru_dict = dict()
             fan_key = fan_fru[0].split()
             fan_sn = "N/A"
