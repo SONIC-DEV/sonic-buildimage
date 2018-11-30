@@ -49,7 +49,7 @@
 	url = https://github.com/Ingrasys-sonic/sonic-platform-modules-ingrasys
 [submodule "src/sonic-platform-common"]
 	path = src/sonic-platform-common
-	url = https://github.com/celestica-Inc/sonic-platform-common
+	url = https://github.com/Azure/sonic-platform-common
 [submodule "src/sonic-platform-daemons"]
 	path = src/sonic-platform-daemons
 	url = https://github.com/Azure/sonic-platform-daemons
