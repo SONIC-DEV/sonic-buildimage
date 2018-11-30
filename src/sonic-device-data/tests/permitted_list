@@ -149,3 +149,5 @@ memlist_enable
 pbmp_gport_stack.0
 reglist_enable
 cls_cmd_daemon
+serdes_lane_config_dfe
+serdes_fec_enable
