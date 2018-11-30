@@ -18,7 +18,7 @@ class CpuTempUtil():
     """Platform-specific CpuTempUtil class"""
 
     def __init__(self):
-        self.temp_url = "http://[fe80::1:1%eth0.4088]:8080/api/sys/temp"
+        pass
 
 
     def get_cpu_temp(self):
