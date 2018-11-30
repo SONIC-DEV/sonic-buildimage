@@ -189,10 +189,12 @@ class PsuUtil(PsuBase):
         psu_info_dict = dict()
         for psu_fru in self.psu_info_list:
             psu_data = dict()
-            psu_data["PN"] = str(psu_fru.get(psu_pn_key)).strip(
-            ) if psu_fru.get(psu_pn_key) is not None else "N/A"
-            psu_data["SN"] = str(psu_fru.get(psu_sn_key)).strip(
-            ) if psu_fru.get(psu_sn_key) is not None else "N/A"
+            pn = psu_fru.get(psu_pn_key)
+            sn = psu_fru.get(psu_sn_key)
+            psu_data["PN"] = "N/A" if not pn or str(
+                pn).strip() == "" else str(pn).strip()
+            psu_data["SN"] = "N/A" if not pn or str(
+                pn).strip() == "" else str(sn).strip()
             raw_key = [v for v in psu_fru.keys() if 'PSU' in v]
             if len(raw_key) > 0:
                 psu_idx = int(re.findall('\d+', raw_key[0])[0])

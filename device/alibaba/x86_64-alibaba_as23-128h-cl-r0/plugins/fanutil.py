@@ -240,7 +240,7 @@ class FanUtil():
 
         # Get the number of fans
         n_fan = self.get_num_fans()
-        all_fan_dict["Number"] = len(self.fru_data_list)
+        all_fan_dict["Number"] = n_fan
 
         # Set fan FRU data.
         fan_fru_dict = dict()
@@ -249,12 +249,7 @@ class FanUtil():
                 continue
             fru_dict = dict()
             fan_key = fan_fru[0].split()
-            fan_sn = "N/A"
-            fan_pn = "N/A"
-            fan_speed = "N/A"
-            fan_ht = "N/A"
             fan_ps = False
-            fan_lt = "N/A"
 
             if str(fan_key[-1]).lower() == "absent":
                 fan_idx = int(re.findall('\d+', fan_key[0])[0])
@@ -263,11 +258,11 @@ class FanUtil():
                 fan_ps = True
                 pn = [s for s in fan_fru if "Part" in s]
                 sn = [s for s in fan_fru if "Serial" in s]
-                fan_pn = pn[0].split()[-1] if len(pn) > 0 else 'N/A'
-                fan_sn = sn[0].split()[-1] if len(sn) > 0 else 'N/A'
+                fan_pn = pn[0].split(":")[-1].strip() if len(pn) > 0 else 'N/A'
+                fan_sn = sn[0].split(":")[-1].strip() if len(sn) > 0 else 'N/A'
 
-            fru_dict["PN"] = fan_pn
-            fru_dict["SN"] = fan_sn
+            fru_dict["PN"] = "N/A" if not fan_pn or fan_pn == "" else fan_pn
+            fru_dict["SN"] = "N/A" if not fan_sn or fan_sn == "" else fan_sn
             fru_dict["Present"] = fan_ps
             fan_fru_dict[fan_idx] = fru_dict
 
