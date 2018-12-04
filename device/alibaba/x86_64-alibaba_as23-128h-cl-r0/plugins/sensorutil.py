@@ -23,8 +23,8 @@ class SensorUtil():
         return {
             "C": "temperature",
             "V": "voltage",
-            "RPM": "fan_speed",
-            "A": "current",
+            "RPM": "RPM",
+            "A": "amp",
             "W": "power"
         }.get(unit, unit)
 
