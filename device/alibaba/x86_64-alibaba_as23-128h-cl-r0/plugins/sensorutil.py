@@ -7,7 +7,7 @@ class SensorUtil():
     """Platform-specific SensorUtil class"""
 
     def __init__(self):
-        self.sensor_url = "http://[fe80::1:1%eth0.4088]:8080/api/sys/sensors"
+        self.sensor_url = "http://240.1.1.1:8080/api/sys/sensors"
         self.sensor_info_list = None
 
     def request_data(self):

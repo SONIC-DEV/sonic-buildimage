@@ -9,8 +9,8 @@ class FanUtil():
 
     def __init__(self):
 
-        self.fan_fru_url = "http://[fe80::1:1%eth0.4088]:8080/api/sys/fruid/fan"
-        self.sensor_url = "http://[fe80::1:1%eth0.4088]:8080/api/sys/sensors"
+        self.fan_fru_url = "http://240.1.1.1:8080/api/sys/fruid/fan"
+        self.sensor_url = "http://240.1.1.1:8080/api/sys/sensors"
         self.fru_data_list = None
         self.sensor_data_list = None
 
@@ -39,7 +39,7 @@ class FanUtil():
             Get the number of fans
             :return: int num_fans
         """
-        num_fans = 8
+        num_fans = 10
 
         return num_fans
 
