@@ -226,7 +226,8 @@ sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y in
     hping3                  \
     python-scapy            \
     tcptraceroute           \
-    mtr-tiny
+    mtr-tiny                \
+    dmidecode
 
 sudo LANG=C DEBIAN_FRONTEND=noninteractive chroot $FILESYSTEM_ROOT apt-get -y download \
     grub-pc-bin
