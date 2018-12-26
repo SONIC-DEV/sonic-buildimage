@@ -8,6 +8,8 @@ parity_enable=0
 phy_enable=0
 phy_null=1
 pll_bypass=1
+port_fec=3
+serdes_tx_taps_ce=pam4:0:140:0:0:0:0
 
 init_all_modules=0
 
