@@ -221,7 +221,7 @@ class FanUtil():
         for x in range(1, n_fan + 1):
             f_index = int(round(float(x)/2))
             pos = 1 if x % 2 else 2
-            fan_name = 'FAN{}-{}'.format(f_index, pos)
+            fan_name = 'FAN{}_{}'.format(f_index, pos)
             fan_names.append(fan_name)
 
         return fan_names
@@ -291,7 +291,7 @@ class FanUtil():
                         fan_dict["HighThd"] = fan_sp_list[2]
                         fan_dict["PN"] = fan_fru_dict[f_index]["PN"]
                         fan_dict["SN"] = fan_fru_dict[f_index]["SN"]
-                    fan_name = 'FAN{}-{}'.format(f_index, pos)
+                    fan_name = 'FAN{}_{}'.format(f_index, pos)
                     all_fan_dict[fan_name] = fan_dict
                 break
 
