@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+__author__ = 'Wirut G.<wgetbumr@celestica.com>'
+__license__ = "GPL"
+__version__ = "0.2.0"
+__status__ = "Development"
+
 import requests
 
 
@@ -28,8 +33,73 @@ class SensorUtil():
             "W": "power"
         }.get(unit, unit)
 
+    def input_name_selector(self, sensor_name, input_name):
+
+        self.sensor_name = {
+            "syscpld-i2c-0-0d": "TEMPERATURE",
+            "dps1100-i2c-25-58": "PSU1",
+            "dps1100-i2c-26-58": "PSU2",
+            "dps1100-i2c-28-58": "PSU3",
+            "dps1100-i2c-29-58": "PSU4",
+            "fancpld-i2c-8-0d": "FAN",
+            "isl68137-i2c-17-60": "ISL68137"
+        }.get(sensor_name, sensor_name)
+
+        if 'dps1100' in sensor_name:
+            input_name = {
+                "fan1": self.sensor_name + "_FAN",
+                "iin": self.sensor_name + "_CURR_I",
+                "iout1": self.sensor_name + "_CURR_O",
+                "pin": self.sensor_name + "_POWER_I",
+                "pout1": self.sensor_name + "_POWER_O",
+                "temp1": self.sensor_name + "_TEMP1",
+                "temp2": self.sensor_name + "_TEMP2",
+                "vin": self.sensor_name + "_VOL_I",
+                "vout1": self.sensor_name + "_VOL_O"
+            }.get(input_name, input_name)
+
+        elif 'isl68137' in sensor_name:
+            input_name = {
+                "iin": self.sensor_name + "_CURR_I",
+                "iout2": self.sensor_name + "_CURR_O",
+                "pin": self.sensor_name + "_POWER_I",
+                "pout2": self.sensor_name + "_POWER_O",
+                "vin": self.sensor_name + "_VOL_I",
+                "vout2": self.sensor_name + "_VOL_O",
+                "temp1": self.sensor_name + "_TEMP1"
+            }.get(input_name, input_name)
+
+        elif 'tmp75' in sensor_name or 'max31730' in sensor_name:
+            input_name = {
+                "tmp75-i2c-7-4f": "BASEBOARD_INLET_RIGHT",
+                "tmp75-i2c-7-4e": "BASEBOARD_INLET_CENTER",
+                "tmp75-i2c-7-4d": "SWITCH_OUTLET",
+                "tmp75-i2c-31-48": "PSU_INLET_LEFT",
+                "tmp75-i2c-31-49": "PSU_INLET_RIGHT",
+                "tmp75-i2c-39-48": "FANBOARD_LEFT",
+                "tmp75-i2c-39-49": "FANBOARD_RIGHT",
+                "tmp75-i2c-42-48": "LINECARD_TOP_RIGHT",
+                "tmp75-i2c-42-49": "LINECARD_TOP_LEFT",
+                "tmp75-i2c-43-48": "LINECARD_BOTTOM_RIGHT",
+                "tmp75-i2c-43-49": "LINECARD_BOTTOM_LEFT",
+                "max31730-i2c-7-4c": "SWITCH_REMOTE_" + input_name
+            }.get(sensor_name, input_name)
+            self.sensor_name = "TEMPERATURE"
+
+        elif 'fancpld' in sensor_name:
+            raw_fan_input = input_name.split()
+            input_name = raw_fan_input[0] + \
+                raw_fan_input[1] + "_" + raw_fan_input[2]
+
+        elif 'ir35' in sensor_name or 'ir38' in sensor_name:
+            sensor_name_raw = sensor_name.split("-")
+            sensor_name = sensor_name_raw[0]
+            self.sensor_name = sensor_name.upper()
+
+        return input_name.replace(" ", "_").upper()
+
     def get_num_sensors(self):
-        """   
+        """
             Get the number of sensors
             :return: int num_sensors
         """
@@ -48,7 +118,7 @@ class SensorUtil():
         return num_sensors
 
     def get_sensor_input_num(self, index):
-        """   
+        """
             Get the number of the input items of the specified sensor
             :return: int input_num
         """
@@ -68,7 +138,7 @@ class SensorUtil():
         return input_num
 
     def get_sensor_name(self, index):
-        """   
+        """
             Get the device name of the specified sensor.
             for example "coretemp-isa-0000"
             :return: str sensor_name
@@ -90,7 +160,7 @@ class SensorUtil():
 
     def get_sensor_input_name(self, sensor_index, input_index):
         """
-            Get the input item name of the specified input item of the 
+            Get the input item name of the specified input item of the
             specified sensor index, for example "Physical id 0"
             :return: str sensor_input_name
         """
@@ -115,7 +185,7 @@ class SensorUtil():
 
     def get_sensor_input_type(self, sensor_index, input_index):
         """
-            Get the item type of the specified input item of the specified sensor index, 
+            Get the item type of the specified input item of the specified sensor index,
             The return value should among  "valtage","temperature"
             :return: str sensor_input_type
         """
@@ -170,7 +240,7 @@ class SensorUtil():
 
     def get_sensor_input_low_threshold(self, sensor_index, input_index):
         """
-            Get the low threshold of the value, 
+            Get the low threshold of the value,
             the status of this item is not ok if the current value<low_threshold
             :return: float sensor_input_low_threshold
         """
@@ -206,7 +276,7 @@ class SensorUtil():
 
     def get_sensor_input_high_threshold(self, sensor_index, input_index):
         """
-            Get the high threshold of the value, 
+            Get the high threshold of the value,
             the status of this item is not ok if the current value > high_threshold
             :return: float sensor_input_high_threshold
         """
@@ -248,7 +318,6 @@ class SensorUtil():
         # Request sensor's information.
         self.sensor_info_list = self.request_data()
         for sensor_data in self.sensor_info_list:
-            sensor_name = sensor_data.get('name')
             sensor_info = sensor_data.copy()
 
             # Remove none unuse key.
@@ -278,8 +347,13 @@ class SensorUtil():
                     1000 if str(thres_unit[0]).lower() == 'k' else h_thres
                 sensor_i_dict["LowThd"] = l_thres * \
                     1000 if str(thres_unit[0]).lower() == 'k' else l_thres
+
+                k = self.input_name_selector(sensor_data.get('name'), k)
                 sensor_dict[k] = sensor_i_dict
 
-            all_sensor_dict[sensor_name] = sensor_dict
+            if all_sensor_dict.get(self.sensor_name) is None:
+                all_sensor_dict[self.sensor_name] = dict()
+
+            all_sensor_dict[self.sensor_name].update(sensor_dict)
 
         return all_sensor_dict
