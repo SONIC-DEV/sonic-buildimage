@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+__author__ = 'Wirut G.<wgetbumr@celestica.com>'
+__license__ = "GPL"
+__version__ = "0.1.2"
+__status__ = "Development"
+
 import requests
 import re
 
@@ -37,16 +42,7 @@ class PsuUtil(PsuBase):
         :return: An integer, the number of PSUs available on the device
         """
 
-        num_psus = 6
-
-        try:
-            # Request and validate sensor's information
-            self.fru_status_list, self.psu_info_list = self.request_data()
-            num_psus = len(self.psu_info_list)
-            for psu_dict in self.psu_info_list:
-                num_psus = num_psus - 1 if psu_dict.keys() == [] else num_psus
-        except:
-            return num_psus
+        num_psus = 4
 
         return num_psus
 
@@ -179,7 +175,8 @@ class PsuUtil(PsuBase):
         # Init data
         all_psu_dict = dict()
         all_psu_dict["Number"] = self.get_num_psus()
-        psu_sn_key = "Serial Number"
+        psu_sn_key_1 = "Serial Number"
+        psu_sn_key_2 = "Product Serial"
         psu_pn_key = "Product Name"
 
         # Request and validate sensor's information.
@@ -190,14 +187,20 @@ class PsuUtil(PsuBase):
         for psu_fru in self.psu_info_list:
             psu_data = dict()
             pn = psu_fru.get(psu_pn_key)
-            sn = psu_fru.get(psu_sn_key)
+            sn = psu_fru.get(psu_sn_key_1) or psu_fru.get(psu_sn_key_2)
             psu_data["PN"] = "N/A" if not pn or str(
                 pn).strip() == "" else str(pn).strip()
             psu_data["SN"] = "N/A" if not pn or str(
                 pn).strip() == "" else str(sn).strip()
-            raw_key = [v for v in psu_fru.keys() if 'PSU' in v]
-            if len(raw_key) > 0:
-                psu_idx = int(re.findall('\d+', raw_key[0])[0])
+
+            fru_check = [psu_fru[v] for v in psu_fru.keys() if 'FRU Info' in v]
+            non_fru_check = [v for v in psu_fru.keys() if 'PSU' in v]
+
+            if len(non_fru_check) > 0:
+                psu_idx = int(re.findall('\d+', non_fru_check[0])[0])
+                psu_info_dict[psu_idx] = psu_data
+            elif len(fru_check) > 0:
+                psu_idx = int(re.findall('\d+', fru_check[0])[0])
                 psu_info_dict[psu_idx] = psu_data
 
         # Set PSU status.
