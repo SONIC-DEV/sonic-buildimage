@@ -37,10 +37,10 @@ class SensorUtil():
 
         self.sensor_name = {
             "syscpld-i2c-0-0d": "TEMPERATURE",
-            "dps1100-i2c-25-58": "PSU1",
+            "dps1100-i2c-27-58": "PSU1",
             "dps1100-i2c-26-58": "PSU2",
-            "dps1100-i2c-28-58": "PSU3",
-            "dps1100-i2c-29-58": "PSU4",
+            "dps1100-i2c-25-58": "PSU3",
+            "dps1100-i2c-24-58": "PSU4",
             "fancpld-i2c-8-0d": "FAN",
             "isl68137-i2c-17-60": "ISL68137"
         }.get(sensor_name, sensor_name)
