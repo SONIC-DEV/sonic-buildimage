@@ -43,7 +43,7 @@ class FwMgrUtil(FwMgrUtilBase):
         :returns: version string
 
         """
-        bmc_version = "None"
+        bmc_version = None
 
         bmc_version_key = "OpenBMC Version"
         bmc_info_req = requests.get(self.bmc_info_url)
@@ -51,7 +51,7 @@ class FwMgrUtil(FwMgrUtilBase):
         bmc_info = bmc_info_json.get('Information')
         bmc_version = bmc_info.get(bmc_version_key)
 
-        return bmc_version
+        return str(bmc_version)
 
     def get_cpld_version(self):
         """Get CPLD version from SONiC
@@ -83,9 +83,10 @@ class FwMgrUtil(FwMgrUtilBase):
             int(CPLD_3[2], 16), int(CPLD_3[3], 16))
         CPLD_4 = 'None' if CPLD_4 is 'None' else "{}.{}".format(
             int(CPLD_4[2], 16), int(CPLD_4[3], 16))
-        FAN_CPLD = 'None' if CPLD_4 is None else "{:.1f}".format(float(fan_cpld))
+        FAN_CPLD = 'None' if CPLD_4 is None else "{:.1f}".format(
+            float(fan_cpld))
 
-        cpld_version_dict={}
+        cpld_version_dict = {}
         cpld_version_dict.update({'CPLD_B': CPLD_B})
         cpld_version_dict.update({'CPLD_C': CPLD_C})
         cpld_version_dict.update({'CPLD_1': CPLD_1})
@@ -101,57 +102,63 @@ class FwMgrUtil(FwMgrUtilBase):
         :returns: version string
 
         """
-        bios_version='None'
+        bios_version = None
 
-        p=subprocess.Popen(
+        p = subprocess.Popen(
             ["sudo", "dmidecode", "-s", "bios-version"], stdout=subprocess.PIPE)
-        raw_data=str(p.communicate()[0])
-        raw_data_list=raw_data.split("\n")
-        bios_version=raw_data_list[0] if len(
+        raw_data = str(p.communicate()[0])
+        raw_data_list = raw_data.split("\n")
+        bios_version = raw_data_list[0] if len(
             raw_data_list) == 1 else raw_data_list[-2]
 
-        return bios_version
+        return str(bios_version)
 
     def get_onie_version(self):
         """Get ONiE version from SONiC
         :returns: version string
 
         """
-        onie_verison='None'
+        onie_verison = None
 
-        onie_version_keys="onie_version"
-        onie_config_file=open(self.onie_config_file, "r")
+        onie_version_keys = "onie_version"
+        onie_config_file = open(self.onie_config_file, "r")
         for line in onie_config_file.readlines():
             if onie_version_keys in line:
-                onie_version_raw=line.split('=')
-                onie_verison=onie_version_raw[1].strip()
+                onie_version_raw = line.split('=')
+                onie_verison = onie_version_raw[1].strip()
                 break
-        return onie_verison
+        return str(onie_verison)
 
     def get_pcie_version(self):
-        """Get PCiE version from SONiC
-        :returns: version string
+        """Get PCiE version from SONiC         
+        :returns: version dict { "PCIE_FW_LOADER": "2.5", "PCIE_FW": "D102_08" }
+
         """
-        cmd="sudo bcmcmd 'pciephy fw version'"
-        p=subprocess.Popen(
+        cmd = "sudo bcmcmd 'pciephy fw version'"
+        p = subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        raw_data, err=p.communicate()
-        if err is not '':
-            return 'None'
-        else:
-            lines=raw_data.split('\n')
+        raw_data, err = p.communicate()
+
+        pcie_version = dict()
+        pcie_version["PCIE_FW_LOADER"] = 'None'
+        pcie_version["PCIE_FW"] = 'None'
+
+        if err == '':
+            lines = raw_data.split('\n')
             for line in lines:
                 if 'PCIe FW loader' in line:
-                    version=line.split(':')[1].strip()
-        return str(version)
+                    pcie_version["PCIE_FW_LOADER"] = line.split(':')[1].strip()
+                elif 'PCIe FW version' in line:
+                    pcie_version["PCIE_FW"] = line.split(':')[1].strip()
+        return pcie_version
 
     def get_fpga_version(self):
         """Get FPGA version from SONiC
         :returns: version string
 
         """
-        version=self.__get_register_value(self.fpga_version_path, '0x00')
+        version = self.__get_register_value(self.fpga_version_path, '0x00')
         if version is not 'None':
-            version="{}.{}".format(
+            version = "{}.{}".format(
                 int(version[2:][:4], 16), int(version[2:][4:], 16))
         return str(version)
