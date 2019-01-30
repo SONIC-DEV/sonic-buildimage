@@ -256,6 +256,8 @@ class FanUtil():
 
             if len(fan_fru) == 0:
                 fan_idx = fan_raw_idx
+                fan_pn = "N/A"
+                fan_sn = "N/A"
             else:
                 fan_key = fan_fru[0].split()
                 if str(fan_key[-1]).lower() == "absent":
@@ -290,7 +292,8 @@ class FanUtil():
                     fan_data = sensor_data.get(fan_key)
                     fan_sp_list = map(int, re.findall(r'\d+', fan_data))
                     fan_dict["Present"] = fan_fru_dict[f_index]["Present"]
-                    if fan_dict["Present"]:
+                    if fan_dict["Present"] or fan_sp_list[0] > 0:
+                        fan_dict["Present"] = True
                         fan_dict["Speed"] = fan_sp_list[0]
                         fan_dict["Running"] = True if fan_dict["Speed"] > 0 else False
                         fan_dict["LowThd"] = fan_sp_list[1]
