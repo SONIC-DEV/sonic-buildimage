@@ -13,6 +13,7 @@ class SensorUtil():
 
     def __init__(self):
         self.sensor_url = "http://240.1.1.1:8080/api/sys/sensors"
+        self.sys_fruid_url = "http://240.1.1.1:8080/api/sys/fruid/sys"
         self.sensor_info_list = None
 
     def request_data(self):
@@ -21,6 +22,9 @@ class SensorUtil():
             sensor_data_req = requests.get(self.sensor_url)
             sensor_json = sensor_data_req.json()
             self.sensor_info_list = sensor_json.get('Information')
+            sys_fruid_req = requests.get(self.sys_fruid_url)
+            sys_fruid_json = sys_fruid_req.json()
+            self.sys_fruid_list = sys_fruid_json.get('Information')
         return self.sensor_info_list
 
     def input_type_selector(self, unit):
@@ -291,6 +295,22 @@ class SensorUtil():
 
         return sensor_input_high_threshold
 
+    def get_sys_airflow(self):
+        sys_air_flow = "Unknown"
+        sys_pn_data = [
+            v.split(":") for v in self.sys_fruid_list if "Product Part Number" in v]
+
+        if len(sys_pn_data) == 0:
+            return sys_air_flow
+
+        sys_pn = sys_pn_data[0][1]
+        if "R1241-F0001" in sys_pn:
+            sys_air_flow = "FTOB"
+        elif"R1241-F0002" in sys_pn:
+            sys_air_flow = "BTOF"
+
+        return sys_air_flow
+
     def get_all(self):
 
         all_sensor_dict = dict()
@@ -335,5 +355,9 @@ class SensorUtil():
                 all_sensor_dict[self.sensor_name] = dict()
 
             all_sensor_dict[self.sensor_name].update(sensor_dict)
+
+        sensor_dict = dict()
+        sensor_dict["Sys_AirFlow"] = self.get_sys_airflow()
+        all_sensor_dict["TEMPERATURE"].update(sensor_dict)
 
         return all_sensor_dict

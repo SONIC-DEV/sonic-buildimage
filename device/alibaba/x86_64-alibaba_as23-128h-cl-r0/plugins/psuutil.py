@@ -2,7 +2,7 @@
 
 __author__ = 'Wirut G.<wgetbumr@celestica.com>'
 __license__ = "GPL"
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 __status__ = "Development"
 
 import requests
@@ -35,6 +35,15 @@ class PsuUtil(PsuBase):
             self.fru_status_list = fru_status_json.get('Information')
             self.psu_info_list = psu_info_json.get('Information')
         return self.fru_status_list, self.psu_info_list
+
+    def airflow_selector(self, pn):
+        # Set input type.
+        return {
+            "DPS-1100FB": "FTOB",
+            "DPS-1100AB": "BTOF",
+            "FSJ026-A20G": "FTOB",
+            "FSJ038-A20G": "BTOF"
+        }.get(pn, "Unknown")
 
     def get_num_psus(self):
         """
@@ -213,12 +222,21 @@ class PsuUtil(PsuBase):
                     "Present")).strip() == "Present" else False
                 psu_pw_status = True if str(fru_status.get(
                     "Power Status")).strip() == "OK" else False
+                psu_pw_type = str(fru_status.get(
+                    "Power Type")).strip()
+                ac_status = True if str(fru_status.get(
+                    "AC Status")).strip().upper() == "OK" else False
 
                 psu_status_dict["Present"] = psu_ps_status
                 if psu_ps_status:
                     psu_status_dict["PowerStatus"] = psu_pw_status
                     psu_status_dict["PN"] = psu_info_dict[psu_idx]["PN"]
                     psu_status_dict["SN"] = psu_info_dict[psu_idx]["SN"]
+                    psu_status_dict["InputType"] = psu_pw_type
+                    psu_status_dict["InputStatus"] = True if psu_pw_status and psu_ps_status else False
+                    psu_status_dict["OutputStatus"] = ac_status
+                    psu_status_dict["AirFlow"] = self.airflow_selector(
+                        psu_status_dict["PN"].split()[0])
                 all_psu_dict[find_psu[0]] = psu_status_dict
 
         return all_psu_dict

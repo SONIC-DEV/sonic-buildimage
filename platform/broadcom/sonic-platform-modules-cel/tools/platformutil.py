@@ -83,6 +83,8 @@
 #     //         "HighThd": 15000.0,
 #     //         "PN": "PN-EXAMPLE-123",
 #     //         "SN": "SN-EXAMPLE-123"
+#     //         "Status": True,
+#     //         "AirFlow": "FTOB"
 #     //     },
 #     //     "FAN1_2": {
 #     //         "Present": True,
@@ -92,6 +94,8 @@
 #     //         "HighThd": 15000.0,
 #     //         "PN": "PN-EXAMPLE-456",
 #     //         "SN": "SN-EXAMPLE-456"
+#     //         "Status": True,
+#     //         "AirFlow": "BTOF"
 #     //     },
 #     //     "FAN2_1": {
 #     //         "Present": True,
@@ -109,7 +113,6 @@
 #     //     }
 #     // }
 #     dict get_all()
-
 #
 # class SensorUtil:
 #     int get_num_sensors();  //get the number of sensors
@@ -133,6 +136,37 @@
 #     // Return python 'dict' objects, example:
 #     // {
 #     //     "SensorName1": {
+#     //         "CPU_TEMP":
+#     //             "Type": "temperature",
+#     //             "Value": 37.3,
+#     //             "LowThd": 0.0,
+#     //             "HighThd": 110.0
+#     //         },
+#     //         "SWITCH_TEMP": {
+#     //             "Type": "temperature",
+#     //             "Value": 45.2,
+#     //             "LowThd": 0.0,
+#     //             "HighThd": 108.0
+#     //         },
+#     //         "INLET_TEMP": {
+#     //             "Type": "temperature",
+#     //             "Value": 22.0,
+#     //             "LowThd": 0.0,
+#     //             "HighThd": 70.0
+#     //         },
+#     //         "Sys_AirFlow": "BTOF",
+#     //         "Switch_VDDCore_0.8v": {
+#     //             "Type": "voltage",
+#     //             "Value": 0.75,
+#     //             "LowThd": 0.7,
+#     //             "HighThd": 0.85
+#     //         },
+#     //         "Cpu_VDDCore_0.8v": {
+#     //             "Type": "voltage",
+#     //             "Value": 0.75,
+#     //             "LowThd": 0.7,
+#     //             "HighThd": 0.85
+#     //         },
 #     //         "SensorInput1": {
 #     //             "Type": "temperature",
 #     //             "Value": 30.0,
@@ -181,7 +215,7 @@ try:
 except ImportError as e:
     raise ImportError("%s - required module not found" % str(e))
 
-VERSION = '1.1'
+VERSION = '1.2'
 
 SYSLOG_IDENTIFIER = "platformutil"
 PLATFORM_PSU_MODULE_NAME = "psuutil"
@@ -527,6 +561,8 @@ def status(ctx):
             si_names = [ k for k in sensor_obj.keys() ]
             si_names.sort()
             for si_name in si_names:
+                if si_name == "Sys_AirFlow":
+                    continue
                 si = sensor_obj[si_name]
                 stype = si.get('Type')
                 sval = si.get('Value')

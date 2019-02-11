@@ -2,11 +2,11 @@
 
 __author__ = 'Wirut G.<wgetbumr@celestica.com>'
 __license__ = "GPL"
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __status__ = "Development"
 
-import re
 import requests
+import re
 
 
 class FanUtil():
@@ -249,27 +249,35 @@ class FanUtil():
 
         # Set fan FRU data.
         fan_fru_dict = dict()
+        fan_raw_idx = 1
         for fan_fru in self.fru_data_list:
-            if len(fan_fru) == 0:
-                continue
             fru_dict = dict()
-            fan_key = fan_fru[0].split()
             fan_ps = False
 
-            if str(fan_key[-1]).lower() == "absent":
-                fan_idx = int(re.findall('\d+', fan_key[0])[0])
+            if len(fan_fru) == 0:
+                fan_idx = fan_raw_idx
+                fan_pn = "N/A"
+                fan_sn = "N/A"
             else:
-                fan_idx = int(re.findall('\d+', fan_key[-1])[0])
-                fan_ps = True
-                pn = [s for s in fan_fru if "Part" in s]
-                sn = [s for s in fan_fru if "Serial" in s]
-                fan_pn = pn[0].split(":")[-1].strip() if len(pn) > 0 else 'N/A'
-                fan_sn = sn[0].split(":")[-1].strip() if len(sn) > 0 else 'N/A'
+                fan_key = fan_fru[0].split()
+                if str(fan_key[-1]).lower() == "absent":
+                    fan_idx = int(re.findall('\d+', fan_key[0])[0])
+
+                else:
+                    fan_idx = int(re.findall('\d+', fan_key[-1])[0])
+                    fan_ps = True
+                    pn = [s for s in fan_fru if "Part" in s]
+                    sn = [s for s in fan_fru if "Serial" in s]
+                    fan_pn = pn[0].split(
+                        ":")[-1].strip() if len(pn) > 0 else 'N/A'
+                    fan_sn = sn[0].split(
+                        ":")[-1].strip() if len(sn) > 0 else 'N/A'
 
             fru_dict["PN"] = "N/A" if not fan_pn or fan_pn == "" else fan_pn
             fru_dict["SN"] = "N/A" if not fan_sn or fan_sn == "" else fan_sn
             fru_dict["Present"] = fan_ps
             fan_fru_dict[fan_idx] = fru_dict
+            fan_raw_idx += 1
 
         # Set fan sensor data.
         for sensor_data in self.sensor_data_list:
@@ -284,13 +292,17 @@ class FanUtil():
                     fan_data = sensor_data.get(fan_key)
                     fan_sp_list = map(int, re.findall(r'\d+', fan_data))
                     fan_dict["Present"] = fan_fru_dict[f_index]["Present"]
-                    if fan_dict["Present"]:
+                    if fan_dict["Present"] or fan_sp_list[0] > 0:
+                        fan_dict["Present"] = True
                         fan_dict["Speed"] = fan_sp_list[0]
                         fan_dict["Running"] = True if fan_dict["Speed"] > 0 else False
                         fan_dict["LowThd"] = fan_sp_list[1]
                         fan_dict["HighThd"] = fan_sp_list[2]
                         fan_dict["PN"] = fan_fru_dict[f_index]["PN"]
                         fan_dict["SN"] = fan_fru_dict[f_index]["SN"]
+                        fan_dict["AirFlow"] = "FTOB" if "R1241-F9001" in fan_dict["PN"] else "Unknown"
+                        fan_dict["AirFlow"] = "BTOF" if "R1241-F9002" in fan_dict["PN"] else fan_dict["AirFlow"]
+                        fan_dict["Status"] = True if fan_dict["AirFlow"] != "Unknown" else False
                     fan_name = 'FAN{}_{}'.format(f_index, pos)
                     all_fan_dict[fan_name] = fan_dict
                 break
