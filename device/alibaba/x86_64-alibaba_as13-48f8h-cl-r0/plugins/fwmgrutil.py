@@ -6,6 +6,8 @@
 import subprocess
 import requests
 import os
+import pexpect
+import base64
 
 try:
     from sonic_fwmgr.fwgmr_base import FwMgrUtilBase
@@ -29,6 +31,7 @@ class FwMgrUtil(FwMgrUtilBase):
         self.switchboard_cpld2_path = "/sys/devices/platform/%s.switchboard/CPLD2/getreg" % self.platform_name
         self.switchboard_cpld3_path = "/sys/devices/platform/%s.switchboard/CPLD3/getreg" % self.platform_name
         self.switchboard_cpld4_path = "/sys/devices/platform/%s.switchboard/CPLD4/getreg" % self.platform_name
+        self.bmc_pwd_path = "/usr/local/etc/bmcpwd"
 
     def __get_register_value(self, path, register):
         cmd = "echo {1} > {0}; cat {0}".format(path, register)
@@ -39,6 +42,19 @@ class FwMgrUtil(FwMgrUtilBase):
             return 'None'
         else:
             return raw_data.strip()
+
+    def get_bmc_pass(self):
+        with open(self.bmc_pwd_path) as file:
+            data = file.read()
+
+        key = "bmc"
+        dec = []
+        enc = base64.urlsafe_b64decode(data)
+        for i in range(len(enc)):
+            key_c = key[i % len(key)]
+            dec_c = chr((256 + ord(enc[i]) - ord(key_c)) % 256)
+            dec.append(dec_c)
+        return "".join(dec)
 
     def get_bmc_version(self):
         """Get BMC version from SONiC
@@ -109,6 +125,8 @@ class FwMgrUtil(FwMgrUtilBase):
         p = subprocess.Popen(
             ["sudo", "dmidecode", "-s", "bios-version"], stdout=subprocess.PIPE)
         raw_data = str(p.communicate()[0])
+        if raw_data == '':
+            return str(None)
         raw_data_list = raw_data.split("\n")
         bios_version = raw_data_list[0] if len(
             raw_data_list) == 1 else raw_data_list[-2]
@@ -129,6 +147,7 @@ class FwMgrUtil(FwMgrUtilBase):
                 onie_version_raw = line.split('=')
                 onie_verison = onie_version_raw[1].strip()
                 break
+        onie_config_file.close()
         return str(onie_verison)
 
     def get_pcie_version(self):
@@ -177,43 +196,57 @@ class FwMgrUtil(FwMgrUtilBase):
         """
 
         if fw_type == 'bmc':
-
             # Copy BMC image file to BMC
-            scp_command = 'scp ' + \
-                os.path.abspath(fw_path) + ' root@240.1.1.1:/home/root/'
+            scp_command = 'sudo scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r %s root@240.1.1.1:/home/root/' % os.path.abspath(
+                fw_path)
+            child = pexpect.spawn(scp_command)
+            i = child.expect(["root@240.1.1.1's password:"], timeout=30)
+            if i == 0:
+                print("Uploading image to BMC...")
+                print("Running command : ", scp_command)
 
-            print "Uploading image to BMC..."
-            print "Running command : ", scp_command
-            print "Please enter the BMC password"
-            p = subprocess.Popen(
-                scp_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            raw_data, err = p.communicate()
-
-            if err != "":
-                print "Failed"
-                return False
-
-            print "Installing BMC image..."
+                bmc_pwd = self.get_bmc_pass()
+                child.sendline(bmc_pwd)
+                data = child.read()
+                print(data)
+                child.close
 
             filename_w_ext = os.path.basename(fw_path)
             json_data = dict()
-            json_data["data"] = "flashcp /home/root/" + \
-                filename_w_ext + " /dev/mtd5"
-            json_data["timeout"] = 300
+            json_data["path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
+            json_data["password"] = bmc_pwd
+            fw_extra_str = str(fw_extra).lower()
+            flash = fw_extra_str if fw_extra_str in [
+                "master", "slave", "both"] else "both"
+            json_data["flash"] = flash
 
-            r = requests.post(self.bmc_raw_command_url, json=json_data)
-            if r.status_code == 200:
-                print "DONE, Rebooting BMC....."
+            if flash == "both":
+                print("Installing BMC as master mode...")
+                json_data["flash"] = "master"
+                r = requests.post(self.bmc_info_url, json=json_data)
+                return_data = r.json()
+                if r.status_code != 200 or 'success' not in return_data.get('result'):
+                    print("Failed")
+                    return False
+                print("Done")
+                json_data["flash"] = "slave"
+
+            print("Installing BMC as %s mode..." % json_data["flash"])
+            r = requests.post(self.bmc_info_url, json=json_data)
+            return_data = r.json()
+            if r.status_code == 200 and 'success' in return_data.get('result'):
+                print("Done, Rebooting BMC.....")
                 reboot_dict = dict()
-                reboot_dict["data"] = "reboot"
-                r = requests.post(self.bmc_raw_command_url, json=reboot_dict)
+                reboot_dict["reboot"] = "yes"
+                r = requests.post(self.bmc_info_url, json=reboot_dict)
+                return True
             else:
-                print "Failed"
+                print("Failed")
                 return False
 
         elif fw_type == 'fpga':
             command = 'fpga_prog ' + fw_path
-            print "Running command : ", command
+            print("Running command : ", command)
             process = subprocess.Popen(
                 command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -222,16 +255,16 @@ class FwMgrUtil(FwMgrUtilBase):
                 if output == '' and process.poll() is not None:
                     break
                 if output:
-                    print output.strip()
+                    print(output.strip())
             rc = process.poll()
-            return rc
+            return True
 
         elif 'cpld' in fw_type:
             command = 'ispvm ' + fw_path
             if fw_extra is not None:
                 command = 'ispvm -c ' + \
                     str(fw_extra) + " " + os.path.abspath(fw_path)
-            print "Running command : ", command
+            print("Running command : ", command)
             process = subprocess.Popen(
                 command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -240,8 +273,8 @@ class FwMgrUtil(FwMgrUtilBase):
                 if output == '' and process.poll() is not None:
                     break
                 if output:
-                    print output.strip()
+                    print(output.strip())
             rc = process.poll()
-            return rc
+            return True
 
-        return None
+        return False

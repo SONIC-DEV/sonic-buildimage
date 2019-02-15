@@ -6,3 +6,4 @@ tools/sync_bmc/bmc_vlan.sh /usr/local/etc/
 tools/sync_bmc/sync_bmc.py /usr/local/etc/
 tools/platformutil.py /usr/local/etc/
 tools/read_optic_temp.py /usr/local/etc/
+tools/bmcutil/bmcpwd /usr/local/etc/
