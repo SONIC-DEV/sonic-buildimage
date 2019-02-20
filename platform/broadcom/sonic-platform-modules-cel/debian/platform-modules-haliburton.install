@@ -1,2 +1,0 @@
-haliburton/cfg/haliburton-modules.conf etc/modules-load.d
-haliburton/systemd/platform-modules-haliburton.service lib/systemd/system

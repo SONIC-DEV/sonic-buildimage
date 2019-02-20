@@ -1,9 +1,0 @@
-phalanx/cfg/phalanx-modules.conf etc/modules-load.d
-tools/sync_bmc/bmc_vlan.service etc/systemd/system
-tools/sync_bmc/sync_bmc.service etc/systemd/system
-tools/sync_bmc/sync_bmc.timer etc/systemd/system
-tools/sync_bmc/bmc_vlan.sh /usr/local/etc/
-tools/sync_bmc/sync_bmc.py /usr/local/etc/
-tools/platformutil.py /usr/local/etc/
-tools/read_optic_temp.py /usr/local/etc/
-tools/bmcutil/bmcpwd /usr/local/etc/
