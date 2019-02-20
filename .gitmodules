@@ -65,3 +65,6 @@
 [submodule "src/redis-dump-load"]
 	path = src/redis-dump-load
 	url = https://github.com/p/redis-dump-load.git
+[submodule "platform/broadcom/sonic-platform-modules-cel"]
+	path = platform/broadcom/sonic-platform-modules-cel
+	url = https://github.com/celestica-Inc/sonic-platform-modules-cel.git
