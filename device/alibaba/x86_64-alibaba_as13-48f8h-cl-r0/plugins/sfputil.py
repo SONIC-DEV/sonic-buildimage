@@ -160,3 +160,25 @@ class SfpUtil(SfpUtilBase):
         TBD
         """
         return NotImplementedError
+
+    def tx_disable(self, port_num, disable):
+        """
+        @param port_num index of physical port
+        @param disable, True  -- disable port tx signal
+                        False -- enable port tx signal
+        @return True when operation success, False on failure.
+        """
+        if port_num not in range(self.port_start, self.port_end + 1) or type(disable) != bool:
+            return False
+
+        try:
+            disable = hex(1) if disable else hex(0)
+            port_name = self.get_port_name(port_num)
+            reg_file = open(
+                "/".join([self.PORT_INFO_PATH, port_name, "sfp_txdisable"]), "w")
+            reg_file.write(disable)
+        except IOError as e:
+            print "Error: unable to open file: %s" % str(e)
+            return False
+
+        return True
