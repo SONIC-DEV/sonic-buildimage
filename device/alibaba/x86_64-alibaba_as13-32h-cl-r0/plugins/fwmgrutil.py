@@ -101,8 +101,8 @@ class FwMgrUtil(FwMgrUtilBase):
             int(CPLD_3[2], 16), int(CPLD_3[3], 16))
         CPLD_4 = 'None' if CPLD_4 is 'None' else "{}.{}".format(
             int(CPLD_4[2], 16), int(CPLD_4[3], 16))
-        FAN_CPLD = 'None' if CPLD_4 is None else "{:.1f}".format(
-            float(fan_cpld))
+        FAN_CPLD = 'None' if CPLD_4 is None else "{}.{}".format(
+            int(fan_cpld[0], 16), int(fan_cpld[1], 16))
 
         cpld_version_dict = {}
         cpld_version_dict.update({'CPLD_B': CPLD_B})
@@ -224,8 +224,7 @@ class FwMgrUtil(FwMgrUtilBase):
                 print("Installing BMC as master mode...")
                 json_data["flash"] = "master"
                 r = requests.post(self.bmc_info_url, json=json_data)
-                return_data = r.json()
-                if r.status_code != 200 or 'success' not in return_data.get('result'):
+                if r.status_code != 200 or 'success' not in r.json().get('result'):
                     print("Failed")
                     return False
                 print("Done")
@@ -233,8 +232,7 @@ class FwMgrUtil(FwMgrUtilBase):
 
             print("Installing BMC as %s mode..." % json_data["flash"])
             r = requests.post(self.bmc_info_url, json=json_data)
-            return_data = r.json()
-            if r.status_code == 200 and 'success' in return_data.get('result'):
+            if r.status_code == 200 and 'success' in r.json().get('result'):
                 print("Done, Rebooting BMC.....")
                 reboot_dict = dict()
                 reboot_dict["reboot"] = "yes"
