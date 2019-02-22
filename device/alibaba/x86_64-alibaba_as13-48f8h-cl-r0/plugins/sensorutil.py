@@ -68,6 +68,12 @@ class SensorUtil():
                 "tmp75-i2c-39-48": "BTF_INLET_RIGHT",
                 "tmp75-i2c-39-49": "BTF_INLET_LEFT"
             }.get(sensor_name, input_name)
+            if self.get_sys_airflow() == "FTOB" and sensor_name == "tmp75-i2c-7-4d":
+                input_name = "INLET_TEMP"
+
+            if self.get_sys_airflow() == "BTOF" and sensor_name == "tmp75-i2c-39-48":
+                input_name = "INLET_TEMP"
+
             self.sensor_name = "TEMPERATURE"
 
         elif 'fancpld' in sensor_name:
@@ -326,6 +332,7 @@ class SensorUtil():
 
             # Set sensor data.
             sensor_dict = dict()
+
             for k, v in sensor_info.items():
                 sensor_i_dict = dict()
                 sensor_data_str = v.split()
