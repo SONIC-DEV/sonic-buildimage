@@ -79,7 +79,7 @@ class SensorUtil():
                 "tmp75-i2c-7-4e": "BASEBOARD_INLET_CENTER",
                 "tmp75-i2c-7-4d": "SWITCH_OUTLET",
                 "tmp75-i2c-31-48": "PSU_INLET_LEFT",
-                "tmp75-i2c-31-49": "PSU_INLET_RIGHT",
+                "tmp75-i2c-31-49": "INLET_TEMP",
                 "tmp75-i2c-39-48": "FANBOARD_LEFT",
                 "tmp75-i2c-39-49": "FANBOARD_RIGHT",
                 "tmp75-i2c-42-48": "LINECARD_TOP_RIGHT",
