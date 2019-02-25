@@ -8,6 +8,7 @@ import requests
 import os
 import pexpect
 import base64
+import time
 
 try:
     from sonic_fwmgr.fwgmr_base import FwMgrUtilBase
@@ -42,6 +43,30 @@ class FwMgrUtil(FwMgrUtilBase):
             return 'None'
         else:
             return raw_data.strip()
+
+    def __fpga_pci_rescan(self):
+        """
+        An sequence to trigger FPGA to load new configuration after upgrade.
+        """
+        fpga_pci_device_remove = '/sys/devices/pci0000:00/0000:00:1c.0/0000:09:00.0/remove'
+        parent_pci_device_rescan = '/sys/devices/pci0000:00/0000:00:1c.0/rescan'
+        cmd = 'modprobe -r switchboard_fpga'
+        os.system(cmd)
+        cmd = 'echo 1 > %s' % fpga_pci_device_remove
+        rc = os.system(cmd)
+        if rc > 0:
+            return rc
+        cmd = 'echo 0xa10a 0 > /sys/devices/platform/%s.cpldb/setreg' % self.platform_name
+        rc = os.system(cmd)
+        if rc > 0:
+            return rc
+        time.sleep(10)
+        cmd = 'echo 1 > %s' % parent_pci_device_rescan
+        rc = os.system(cmd)
+        if rc > 0:
+            return rc
+        os.system('modprobe switchboard_fpga')
+        return 0
 
     def get_bmc_pass(self):
         with open(self.bmc_pwd_path) as file:
@@ -254,8 +279,16 @@ class FwMgrUtil(FwMgrUtilBase):
                     break
                 if output:
                     print(output.strip())
-            rc = process.poll()
-            return True
+
+            if process.returncode == 0:
+                rc = self.__fpga_pci_rescan()
+                if rc == 0:
+                    return True
+                else:
+                    print("Fails to load new FPGA firmware")
+                    return False
+            else:
+                return False
 
         elif 'cpld' in fw_type:
             command = 'ispvm ' + fw_path
@@ -275,4 +308,4 @@ class FwMgrUtil(FwMgrUtilBase):
             rc = process.poll()
             return True
 
-        return None
+        return False
