@@ -25,6 +25,7 @@ class FwMgrUtil(FwMgrUtilBase):
         self.onie_config_file = "/host/machine.conf"
         self.bmc_info_url = "http://240.1.1.1:8080/api/sys/bmc"
         self.bmc_raw_command_url = "http://240.1.1.1:8080/api/sys/raw"
+        self.fw_upgrade_url = "http://240.1.1.1:8080/api/sys/upgrade"
         self.onie_config_file = "/host/machine.conf"
         self.cpldb_version_path = "/sys/devices/platform/%s.cpldb/getreg" % self.platform_name
         self.fpga_version_path = "/sys/devices/platform/%s.switchboard/FPGA/getreg" % self.platform_name
@@ -90,9 +91,10 @@ class FwMgrUtil(FwMgrUtilBase):
 
         bmc_version_key = "OpenBMC Version"
         bmc_info_req = requests.get(self.bmc_info_url)
-        bmc_info_json = bmc_info_req.json()
-        bmc_info = bmc_info_json.get('Information')
-        bmc_version = bmc_info.get(bmc_version_key)
+        if bmc_info_req.status_code == 200:
+            bmc_info_json = bmc_info_req.json()
+            bmc_info = bmc_info_json.get('Information')
+            bmc_version = bmc_info.get(bmc_version_key)
 
         return str(bmc_version)
 
@@ -110,6 +112,8 @@ class FwMgrUtil(FwMgrUtilBase):
 
         fan_cpld_key = "FanCPLD Version"
         bmc_info_req = requests.get(self.bmc_info_url)
+        if bmc_info_req.status_code != 200:
+            return {}
         bmc_info_json = bmc_info_req.json()
         bmc_info = bmc_info_json.get('Information')
         fan_cpld = bmc_info.get(fan_cpld_key)
@@ -291,21 +295,89 @@ class FwMgrUtil(FwMgrUtilBase):
                 return False
 
         elif 'cpld' in fw_type:
-            command = 'ispvm ' + fw_path
-            if fw_extra is not None:
-                command = 'ispvm -c ' + \
-                    str(fw_extra) + " " + os.path.abspath(fw_path)
-            print("Running command : ", command)
-            process = subprocess.Popen(
-                command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            fw_extra_str = str(fw_extra).upper()
+            fw_extra_str = {
+                "TOP_LC_CPLD": "top_lc",
+                "BOT_LC_CPLD": "bot_lc",
+                "FAN_CPLD": "fan",
+                "CPU_CPLD": "cpu",
+                "BASE_CPLD": "base",
+                "COMBO_CPLD": "combo",
+                "SW_CPLD": "switch"
+            }.get(fw_extra_str, None)
 
-            while True:
-                output = process.stdout.readline()
-                if output == '' and process.poll() is not None:
-                    break
-                if output:
-                    print(output.strip())
-            rc = process.poll()
+            if fw_extra_str is None:
+                print("Failed: Invalid extra information string")
+                return False
+
+            scp_command = 'sudo scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r %s root@240.1.1.1:/home/root/' % os.path.abspath(
+                fw_path)
+            child = pexpect.spawn(scp_command)
+            i = child.expect(["root@240.1.1.1's password:"], timeout=30)
+            if i == 0:
+                print("Uploading image to BMC...")
+                print("Running command : ", scp_command)
+                bmc_pwd = self.get_bmc_pass()
+                child.sendline(bmc_pwd)
+                data = child.read()
+                print(data)
+                child.close
+
+            filename_w_ext = os.path.basename(fw_path)
+            json_data = dict()
+            json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
+            json_data["password"] = bmc_pwd
+            json_data["device"] = "cpld"
+            json_data["reboot"] = "no"
+            json_data["type"] = fw_extra_str
+
+            print("Installing CPLD type :", fw_extra_str)
+            r = requests.post(self.fw_upgrade_url, json=json_data)
+            if r.status_code != 200 or 'success' not in r.json().get('result'):
+                print("Failed")
+                return False
+
+            if fw_extra_str == "combo":
+                json_data["type"] = "enable"
+                r = requests.post(self.fw_upgrade_url, json=json_data)
+                if r.status_code != 200 or 'success' not in r.json().get('result'):
+                    print("Failed")
+                    return False
+
             return True
 
+        elif 'bios' in fw_type:
+            fw_extra_str = str(fw_extra).lower()
+            flash = fw_extra_str if fw_extra_str in [
+                "master", "slave"] else "master"
+
+            scp_command = 'sudo scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r %s root@240.1.1.1:/home/root/' % os.path.abspath(
+                fw_path)
+            child = pexpect.spawn(scp_command)
+            i = child.expect(["root@240.1.1.1's password:"], timeout=30)
+            if i == 0:
+                print("Uploading image to BMC...")
+                print("Running command : ", scp_command)
+                bmc_pwd = self.get_bmc_pass()
+                child.sendline(bmc_pwd)
+                data = child.read()
+                print(data)
+                child.close
+
+            filename_w_ext = os.path.basename(fw_path)
+            json_data = dict()
+            json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
+            json_data["password"] = bmc_pwd
+            json_data["device"] = "bios"
+            json_data["flash"] = flash
+
+            print("Installing BIOS ... ")
+            r = requests.post(self.fw_upgrade_url, json=json_data)
+            if r.status_code != 200 or 'success' not in r.json().get('result'):
+                print("Failed")
+                return False
+            print("Done")
+            return True
+
+        print("Failed: Invalid firmware type")
         return False
