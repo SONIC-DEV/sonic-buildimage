@@ -266,6 +266,7 @@ class FwMgrUtil(FwMgrUtilBase):
                 reboot_dict = dict()
                 reboot_dict["reboot"] = "yes"
                 r = requests.post(self.bmc_info_url, json=reboot_dict)
+                print("Done")
                 return True
             else:
                 print("Failed")
@@ -344,6 +345,7 @@ class FwMgrUtil(FwMgrUtilBase):
                     print("Failed")
                     return False
 
+            print("Done")
             return True
 
         elif 'bios' in fw_type:
@@ -370,6 +372,7 @@ class FwMgrUtil(FwMgrUtilBase):
             json_data["password"] = bmc_pwd
             json_data["device"] = "bios"
             json_data["flash"] = flash
+            json_data["reboot"] = "no"
 
             print("Installing BIOS ... ")
             r = requests.post(self.fw_upgrade_url, json=json_data)
