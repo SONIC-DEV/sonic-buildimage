@@ -384,3 +384,48 @@ class FwMgrUtil(FwMgrUtilBase):
 
         print("Failed: Invalid firmware type")
         return False
+
+    def get_last_upgrade_result(self):
+        """
+            Get last firmware upgrade information, inlcudes:
+            1) FwType: cpld/fpga/bios/bmc(passed by method 'firmware_upgrade'), string
+            2) FwPath: path and file name of firmware(passed by method 'firmware_upgrade'), string
+            3) FwExtra: designated string, econdings of this string is determined by vendor(passed by method 'firmware_upgrade')
+            4) Result: indicates whether the upgrade action is performed and success/failure status if performed. Values should be one of: "DONE"/"FAILED"/"NOT_PERFORMED".
+            dict object:
+            {
+                "FwType": "cpld",
+                "FwPath": "/tmp/fw/x86_64-alibaba-as13-48f8h/cpld_come_fan_board.vme"
+                "FwExtra": "specific_encoded_string"
+                "Result": "DONE"/"FAILED"/"NOT_PERFORMED"
+            }
+        """
+        update_dict = dict()
+
+        upgrade_info_req = requests.get(self.fw_upgrade_url)
+        if upgrade_info_req.status_code == 200 and 'success' in upgrade_info_req.json().get('result'):
+            upgrade_info_json = upgrade_info_req.json()
+            if "CPLD upgrade log" in upgrade_info_json.keys() and upgrade_info_json["CPLD upgrade log"] != "None":
+                raw_data = upgrade_info_json["CPLD upgrade log"][-1]
+                raw_data_list = raw_data.split(",")
+                fw_path = raw_data_list[1].split("firmware:")[1].strip()
+                fw_extra_raw = raw_data_list[0].split(":")[0].strip()
+                fw_result_raw = raw_data_list[0].split(":")[1].strip()
+                fw_extra_str = {
+                    "top_lc": "TOP_LC_CPLD",
+                    "bot_lc": "BOT_LC_CPLD",
+                    "fan": "FAN_CPLD",
+                    "cpu": "CPU_CPLD",
+                    "base": "BASE_CPLD",
+                    "combo": "COMBO_CPLD",
+                    "switch": "SW_CPLD"
+                }.get(fw_extra_raw, None)
+                fw_result = "DONE" if fw_result_raw == "success" else fw_result_raw.upper()
+                fw_result = "FAILED" if "FAILED" in fw_result else fw_result
+                fw_result = "NOT_PERFORMED" if fw_result != "DONE" and fw_result != "FAILED" else fw_result
+                update_dict["FwType"] = "cpld"
+                update_dict["FwPath"] = fw_path
+                update_dict["FwExtra"] = fw_extra_str
+                update_dict["Result"] = fw_result
+
+        return update_dict
