@@ -95,8 +95,21 @@ class FwMgrUtil(FwMgrUtilBase):
             bmc_info_json = bmc_info_req.json()
             bmc_info = bmc_info_json.get('Information')
             bmc_version = bmc_info.get(bmc_version_key)
-
         return str(bmc_version)
+
+    def upload_file_bmc(self, fw_path):
+        scp_command = 'sudo scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r %s root@240.1.1.1:/home/root/' % os.path.abspath(
+            fw_path)
+        child = pexpect.spawn(scp_command)
+        i = child.expect(["root@240.1.1.1's password:"], timeout=30)
+        if i == 0:
+            bmc_pwd = self.get_bmc_pass()
+            child.sendline(bmc_pwd)
+            data = child.read()
+            print(data)
+            child.close
+            return True
+        return False
 
     def get_cpld_version(self):
         """Get CPLD version from SONiC
@@ -223,22 +236,14 @@ class FwMgrUtil(FwMgrUtilBase):
                 or 'cpld_fan_come_board', etc. If None, upgrade all CPLD/FPGA firmware. for fw_type 'bios' and 'bmc',
                  value should be one of 'master' or 'slave' or 'both'
         """
-
+        bmc_pwd = self.get_bmc_pass()
         if fw_type == 'bmc':
             # Copy BMC image file to BMC
-            scp_command = 'sudo scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r %s root@240.1.1.1:/home/root/' % os.path.abspath(
-                fw_path)
-            child = pexpect.spawn(scp_command)
-            i = child.expect(["root@240.1.1.1's password:"], timeout=30)
-            if i == 0:
-                print("Uploading image to BMC...")
-                print("Running command : ", scp_command)
-
-                bmc_pwd = self.get_bmc_pass()
-                child.sendline(bmc_pwd)
-                data = child.read()
-                print(data)
-                child.close
+            print("Uploading image to BMC...")
+            upload_file = self.upload_file_bmc(fw_path)
+            if not upload_file:
+                print("Failed")
+                return False
 
             filename_w_ext = os.path.basename(fw_path)
             json_data = dict()
@@ -296,53 +301,88 @@ class FwMgrUtil(FwMgrUtilBase):
                 return False
 
         elif 'cpld' in fw_type:
+            # Check input
             fw_extra_str = str(fw_extra).upper()
-            fw_extra_str = {
-                "TOP_LC_CPLD": "top_lc",
-                "BOT_LC_CPLD": "bot_lc",
-                "FAN_CPLD": "fan",
-                "CPU_CPLD": "cpu",
-                "BASE_CPLD": "base",
-                "COMBO_CPLD": "combo",
-                "SW_CPLD": "switch"
-            }.get(fw_extra_str, None)
+            if ":" in fw_path and ":" in fw_extra_str:
+                fw_path_list = fw_path.split(":")
+                fw_extra_str_list = fw_extra_str.split(":")
+            else:
+                fw_path_list = [fw_path]
+                fw_extra_str_list = [fw_extra_str]
 
-            if fw_extra_str is None:
-                print("Failed: Invalid extra information string")
+            if len(fw_path_list) != len(fw_extra_str_list):
+                print("Failed: Invalid input")
                 return False
 
-            scp_command = 'sudo scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r %s root@240.1.1.1:/home/root/' % os.path.abspath(
-                fw_path)
-            child = pexpect.spawn(scp_command)
-            i = child.expect(["root@240.1.1.1's password:"], timeout=30)
-            if i == 0:
+            data_list = list(zip(fw_path_list, fw_extra_str_list))
+            for data in data_list:
+                fw_path = data[0]
+                fw_extra_str = data[1]
+
+                # Set fw_extra
+                fw_extra_str = {
+                    "TOP_LC_CPLD": "top_lc",
+                    "BOT_LC_CPLD": "bot_lc",
+                    "FAN_CPLD": "fan",
+                    "CPU_CPLD": "cpu",
+                    "BASE_CPLD": "base",
+                    "COMBO_CPLD": "combo",
+                    "SW_CPLD": "switch"
+                }.get(fw_extra_str, None)
+
+                if fw_extra_str is None:
+                    print("Failed: Invalid extra information string")
+                    return False
+
+                # Uploading image to BMC
                 print("Uploading image to BMC...")
-                print("Running command : ", scp_command)
-                bmc_pwd = self.get_bmc_pass()
-                child.sendline(bmc_pwd)
-                data = child.read()
-                print(data)
-                child.close
+                upload_file = self.upload_file_bmc(fw_path)
+                if not upload_file:
+                    print("Failed: Unable to upload image to BMC")
+                    return False
 
-            filename_w_ext = os.path.basename(fw_path)
-            json_data = dict()
-            json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
-            json_data["password"] = bmc_pwd
-            json_data["device"] = "cpld"
-            json_data["reboot"] = "no"
-            json_data["type"] = fw_extra_str
+                filename_w_ext = os.path.basename(fw_path)
+                json_data = dict()
+                json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
+                json_data["password"] = bmc_pwd
+                json_data["device"] = "cpld"
+                json_data["reboot"] = "no"
+                json_data["type"] = fw_extra_str
 
-            print("Installing CPLD type :", fw_extra_str)
-            r = requests.post(self.fw_upgrade_url, json=json_data)
-            if r.status_code != 200 or 'success' not in r.json().get('result'):
-                print("Failed")
-                return False
+                # Call BMC api to install cpld image
+                print("Installing CPLD type :", fw_extra_str)
+                r = requests.post(self.fw_upgrade_url, json=json_data)
+                if r.status_code != 200 or 'success' not in r.json().get('result'):
+                    print("Failed: Invalid cpld image")
+                    return False
 
-            if fw_extra_str == "combo":
+                print(fw_extra_str, "Done")
+
+            # Refresh CPLD
+            if "COMBO_CPLD" in fw_extra_str_list or "BASE_CPLD" in fw_extra_str_list or "CPU_CPLD" in fw_extra_str_list:
+                print(fw_extra_str, "Refreshing CPLD...")
+                dir_name = os.path.dirname(fw_path)
+                file_list = [i for i in os.listdir(
+                    dir_name) if i.lower().endswith("_onlyrefresh.vme")]
+
+                if len(file_list) < 1:
+                    print("Failed: Refresh image not found")
+                    return False
+
+                fw_path = os.path.join(dir_name, file_list[0])
+                upload_file = self.upload_file_bmc(fw_path)
+                if not upload_file:
+                    print("Failed: Unable to upload refresh image to BMC")
+                    return False
+
+                json_data = dict()
+                json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % file_list[0]
+                json_data["password"] = bmc_pwd
+                json_data["device"] = "cpld"
                 json_data["type"] = "enable"
                 r = requests.post(self.fw_upgrade_url, json=json_data)
                 if r.status_code != 200 or 'success' not in r.json().get('result'):
-                    print("Failed")
+                    print("Failed: Invalid refresh image")
                     return False
 
             print("Done")
@@ -360,7 +400,6 @@ class FwMgrUtil(FwMgrUtilBase):
             if i == 0:
                 print("Uploading image to BMC...")
                 print("Running command : ", scp_command)
-                bmc_pwd = self.get_bmc_pass()
                 child.sendline(bmc_pwd)
                 data = child.read()
                 print(data)
