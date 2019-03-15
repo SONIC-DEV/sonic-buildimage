@@ -324,7 +324,7 @@ class FwMgrUtil(FwMgrUtilBase):
                 # Set fw_extra
                 fw_extra_str = {
                     "TOP_LC_CPLD": "top_lc",
-                    "BOT_LC_CPLD": "bot_lc",
+                    "BOT_LC_CPLD": "bottom_lc",
                     "FAN_CPLD": "fan",
                     "CPU_CPLD": "cpu",
                     "BASE_CPLD": "base",
