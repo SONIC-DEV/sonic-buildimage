@@ -9,6 +9,7 @@ import os
 import pexpect
 import base64
 import time
+from datetime import datetime
 
 try:
     from sonic_fwmgr.fwgmr_base import FwMgrUtilBase
@@ -124,12 +125,12 @@ class FwMgrUtil(FwMgrUtilBase):
         CPLD_4 = self.__get_register_value(self.switchboard_cpld4_path, '0x00')
 
         fan_cpld_key = "FanCPLD Version"
+        fan_cpld = None
         bmc_info_req = requests.get(self.bmc_info_url)
-        if bmc_info_req.status_code != 200:
-            return {}
-        bmc_info_json = bmc_info_req.json()
-        bmc_info = bmc_info_json.get('Information')
-        fan_cpld = bmc_info.get(fan_cpld_key)
+        if bmc_info_req == 200:
+            bmc_info_json = bmc_info_req.json()
+            bmc_info = bmc_info_json.get('Information')
+            fan_cpld = bmc_info.get(fan_cpld_key)
 
         CPLD_B = 'None' if CPLD_B is 'None' else "{}.{}".format(
             int(CPLD_B[2], 16), int(CPLD_B[3], 16))
@@ -143,7 +144,7 @@ class FwMgrUtil(FwMgrUtilBase):
             int(CPLD_3[2], 16), int(CPLD_3[3], 16))
         CPLD_4 = 'None' if CPLD_4 is 'None' else "{}.{}".format(
             int(CPLD_4[2], 16), int(CPLD_4[3], 16))
-        FAN_CPLD = 'None' if CPLD_4 is None else "{}.{}".format(
+        FAN_CPLD = 'None' if fan_cpld is None else "{}.{}".format(
             int(fan_cpld[0], 16), int(fan_cpld[1], 16))
 
         cpld_version_dict = {}
@@ -315,6 +316,7 @@ class FwMgrUtil(FwMgrUtilBase):
                 return False
 
             data_list = list(zip(fw_path_list, fw_extra_str_list))
+            refresh_img_path = None
             for data in data_list:
                 fw_path = data[0]
                 fw_extra_str = data[1]
@@ -327,14 +329,20 @@ class FwMgrUtil(FwMgrUtilBase):
                     "CPU_CPLD": "cpu",
                     "BASE_CPLD": "base",
                     "COMBO_CPLD": "combo",
-                    "SW_CPLD": "switch"
+                    "SW_CPLD": "switch",
+                    "REFRESH_CPLD": "refresh"
                 }.get(fw_extra_str, None)
+
+                if fw_extra_str == "refresh":
+                    refresh_img_path = fw_path
+                    continue
 
                 if fw_extra_str is None:
                     print("Failed: Invalid extra information string")
                     return False
 
                 # Uploading image to BMC
+                print("Upgrade %s cpld" % fw_extra_str)
                 print("Uploading image to BMC...")
                 upload_file = self.upload_file_bmc(fw_path)
                 if not upload_file:
@@ -350,33 +358,31 @@ class FwMgrUtil(FwMgrUtilBase):
                 json_data["type"] = fw_extra_str
 
                 # Call BMC api to install cpld image
-                print("Installing CPLD type :", fw_extra_str)
+                print("Installing...")
                 r = requests.post(self.fw_upgrade_url, json=json_data)
                 if r.status_code != 200 or 'success' not in r.json().get('result'):
                     print("Failed: Invalid cpld image")
                     return False
 
-                print(fw_extra_str, "Done")
+                print("%s cpld upgrade completed\n" % fw_extra_str)
 
             # Refresh CPLD
             if "COMBO_CPLD" in fw_extra_str_list or "BASE_CPLD" in fw_extra_str_list or "CPU_CPLD" in fw_extra_str_list:
-                print(fw_extra_str, "Refreshing CPLD...")
-                dir_name = os.path.dirname(fw_path)
-                file_list = [i for i in os.listdir(
-                    dir_name) if i.lower().endswith("_onlyrefresh.vme")]
+                print("Refreshing CPLD...")
 
-                if len(file_list) < 1:
-                    print("Failed: Refresh image not found")
+                if refresh_img_path is None:
+                    print("Failed: Missing refresh image")
                     return False
 
-                fw_path = os.path.join(dir_name, file_list[0])
+                fw_path = refresh_img_path
                 upload_file = self.upload_file_bmc(fw_path)
                 if not upload_file:
                     print("Failed: Unable to upload refresh image to BMC")
                     return False
 
+                filename_w_ext = os.path.basename(fw_path)
                 json_data = dict()
-                json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % file_list[0]
+                json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
                 json_data["password"] = bmc_pwd
                 json_data["device"] = "cpld"
                 json_data["type"] = "enable"
@@ -439,32 +445,47 @@ class FwMgrUtil(FwMgrUtilBase):
                 "Result": "DONE"/"FAILED"/"NOT_PERFORMED"
             }
         """
-        update_dict = dict()
+        last_update_dict = dict()
 
         upgrade_info_req = requests.get(self.fw_upgrade_url)
         if upgrade_info_req.status_code == 200 and 'success' in upgrade_info_req.json().get('result'):
             upgrade_info_json = upgrade_info_req.json()
-            if "CPLD upgrade log" in upgrade_info_json.keys() and upgrade_info_json["CPLD upgrade log"] != "None":
-                raw_data = upgrade_info_json["CPLD upgrade log"][-1]
+            for info_json_key in upgrade_info_json.keys():
+                if info_json_key == "result" or upgrade_info_json[info_json_key] == "None":
+                    continue
+
+                update_dict = dict()
+                raw_data = upgrade_info_json[info_json_key][-1]
                 raw_data_list = raw_data.split(",")
                 fw_path = raw_data_list[1].split("firmware:")[1].strip()
                 fw_extra_raw = raw_data_list[0].split(":")[0].strip()
                 fw_result_raw = raw_data_list[0].split(":")[1].strip()
-                fw_extra_str = {
-                    "top_lc": "TOP_LC_CPLD",
-                    "bot_lc": "BOT_LC_CPLD",
-                    "fan": "FAN_CPLD",
-                    "cpu": "CPU_CPLD",
-                    "base": "BASE_CPLD",
-                    "combo": "COMBO_CPLD",
-                    "switch": "SW_CPLD"
-                }.get(fw_extra_raw, None)
+                raw_datetime = raw_data_list[2].split("time:")[1].strip()
+                reformat_datetime = raw_datetime.replace("CST", "UTC")
+                fw_extra_time = datetime.strptime(
+                    reformat_datetime, '%a %b %d %H:%M:%S %Z %Y')
+
+                fw_extra_str = fw_extra_raw
+                if info_json_key == "CPLD upgrade log":
+                    fw_extra_str = {
+                        "top_lc": "TOP_LC_CPLD",
+                        "bot_lc": "BOT_LC_CPLD",
+                        "fan": "FAN_CPLD",
+                        "cpu": "CPU_CPLD",
+                        "base": "BASE_CPLD",
+                        "combo": "COMBO_CPLD",
+                        "switch": "SW_CPLD"
+                    }.get(fw_extra_raw, None)
                 fw_result = "DONE" if fw_result_raw == "success" else fw_result_raw.upper()
                 fw_result = "FAILED" if "FAILED" in fw_result else fw_result
                 fw_result = "NOT_PERFORMED" if fw_result != "DONE" and fw_result != "FAILED" else fw_result
-                update_dict["FwType"] = "cpld"
+                update_dict["FwType"] = info_json_key.split(" ")[0].lower()
                 update_dict["FwPath"] = fw_path
                 update_dict["FwExtra"] = fw_extra_str
                 update_dict["Result"] = fw_result
+                update_dict["FwTime"] = fw_extra_time
+                if last_update_dict == dict() or update_dict["FwTime"] > last_update_dict["FwTime"]:
+                    last_update_dict = update_dict
 
-        return update_dict
+        last_update_dict.pop('FwTime', None)
+        return last_update_dict
