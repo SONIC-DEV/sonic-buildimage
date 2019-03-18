@@ -240,6 +240,7 @@ class FwMgrUtil(FwMgrUtilBase):
         bmc_pwd = self.get_bmc_pass()
         if fw_type == 'bmc':
             # Copy BMC image file to BMC
+            print("BMC Upgrade")
             print("Uploading image to BMC...")
             upload_file = self.upload_file_bmc(fw_path)
             if not upload_file:
@@ -279,6 +280,7 @@ class FwMgrUtil(FwMgrUtilBase):
                 return False
 
         elif fw_type == 'fpga':
+            print("FPGA Upgrade")
             command = 'fpga_prog ' + fw_path
             print("Running command : ", command)
             process = subprocess.Popen(
@@ -302,6 +304,7 @@ class FwMgrUtil(FwMgrUtilBase):
                 return False
 
         elif 'cpld' in fw_type:
+            print("CPLD Upgrade")
             # Check input
             fw_extra_str = str(fw_extra).upper()
             if ":" in fw_path and ":" in fw_extra_str:
@@ -395,6 +398,7 @@ class FwMgrUtil(FwMgrUtilBase):
             return True
 
         elif 'bios' in fw_type:
+            print("BIOS Upgrade")
             fw_extra_str = str(fw_extra).lower()
             flash = fw_extra_str if fw_extra_str in [
                 "master", "slave"] else "master"
@@ -403,13 +407,22 @@ class FwMgrUtil(FwMgrUtilBase):
                 fw_path)
             child = pexpect.spawn(scp_command)
             i = child.expect(["root@240.1.1.1's password:"], timeout=30)
-            if i == 0:
-                print("Uploading image to BMC...")
-                print("Running command : ", scp_command)
-                child.sendline(bmc_pwd)
-                data = child.read()
-                print(data)
-                child.close
+            if i != 0:
+                print("Failed: Unable to connect to BMC")
+                return False
+
+            print("Uploading image to BMC...")
+            child.sendline(bmc_pwd)
+            data = child.read()
+            print(data)
+            child.close
+
+            json_data = dict()
+            json_data["data"] = "/usr/bin/ipmitool -b 1 -t 0x2c raw 0x2e 0xdf 0x57 0x01 0x00 0x01"
+            r = requests.post(self.bmc_raw_command_url, json=json_data)
+            if r.status_code != 200:
+                print("Failed")
+                return False
 
             filename_w_ext = os.path.basename(fw_path)
             json_data = dict()
