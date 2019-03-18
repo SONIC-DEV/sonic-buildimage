@@ -332,7 +332,8 @@ class FwMgrUtil(FwMgrUtilBase):
                     "CPU_CPLD": "cpu",
                     "BASE_CPLD": "base",
                     "COMBO_CPLD": "combo",
-                    "SW_CPLD": "switch",
+                    "SW_CPLD1": "switch",
+                    "SW_CPLD2": "switch",
                     "REFRESH_CPLD": "refresh"
                 }.get(fw_extra_str, None)
 
