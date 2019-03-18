@@ -127,7 +127,7 @@ class FwMgrUtil(FwMgrUtilBase):
         fan_cpld_key = "FanCPLD Version"
         fan_cpld = None
         bmc_info_req = requests.get(self.bmc_info_url)
-        if bmc_info_req == 200:
+        if bmc_info_req.status_code == 200:
             bmc_info_json = bmc_info_req.json()
             bmc_info = bmc_info_json.get('Information')
             fan_cpld = bmc_info.get(fan_cpld_key)
