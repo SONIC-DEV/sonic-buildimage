@@ -168,17 +168,34 @@ class SfpUtil(SfpUtilBase):
                         False -- enable port tx signal
         @return True when operation success, False on failure.
         """
+        TX_DISABLE_BYTE_OFFSET = 86
         if port_num not in range(self.port_start, self.port_end + 1) or type(disable) != bool:
             return False
 
-        try:
-            disable = hex(1) if disable else hex(0)
-            port_name = self.get_port_name(port_num)
-            reg_file = open(
-                "/".join([self.PORT_INFO_PATH, port_name, "sfp_txdisable"]), "w")
-            reg_file.write(disable)
-        except IOError as e:
-            print "Error: unable to open file: %s" % str(e)
-            return False
+        # QSFP, set eeprom to disable tx
+        if port_num in self.qsfp_ports:
+            disable = b'\x0f' if disable else b'\x00'
+            # open eeprom
+            try:
+                with open(self.port_to_eeprom_mapping[port_num], mode="wb", buffering=0) as sysfsfile:
+                    sysfsfile.seek(TX_DISABLE_BYTE_OFFSET)
+                    sysfsfile.write(bytearray(disable))
+            except IOError:
+                return False
+            except:
+                return False
+
+        # SFP, set tx_disable pin
+        else:
+            try:
+                disable = hex(1) if disable else hex(0)
+                port_name = self.get_port_name(port_num)
+                reg_file = open(
+                    "/".join([self.PORT_INFO_PATH, port_name, "sfp_txdisable"]), "w")
+                reg_file.write(disable)
+                reg_file.close()
+            except IOError as e:
+                print "Error: unable to open file: %s" % str(e)
+                return False
 
         return True
