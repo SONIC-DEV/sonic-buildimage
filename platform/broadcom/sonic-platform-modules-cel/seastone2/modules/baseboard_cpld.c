@@ -1,7 +1,7 @@
 /*
  * baseboard_cpld.c - driver for Seastone2 Base Board CPLD
  * This driver implement sysfs for CPLD register access using LPC bus.
- * Copyright (C) 2017 Celestica Corp.
+ * Copyright (C) 2019 Celestica Corp.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -93,9 +93,10 @@ static DEVICE_ATTR_RW(scratch);
 /* CPLD version attributes */
 static ssize_t version_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
+    int len = -EIO;
     // CPLD register is one byte
     mutex_lock(&cpld_data->cpld_lock);
-    int len = sprintf(buf, "0x%2.2x\n",inb(VERSION_ADDR));
+    len = sprintf(buf, "0x%2.2x\n",inb(VERSION_ADDR));
     mutex_unlock(&cpld_data->cpld_lock);
     return len;
 }
@@ -119,9 +120,10 @@ static ssize_t getreg_store(struct device *dev, struct device_attribute *devattr
 
 static ssize_t getreg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
+    int len = -EIO;
     // CPLD register is one byte
     mutex_lock(&cpld_data->cpld_lock);
-    int len = sprintf(buf, "0x%2.2x\n",inb(cpld_data->read_addr));
+    len = sprintf(buf, "0x%2.2x\n",inb(cpld_data->read_addr));
     mutex_unlock(&cpld_data->cpld_lock);
     return len;
 }
@@ -168,32 +170,6 @@ static ssize_t setreg_store(struct device *dev, struct device_attribute *devattr
     return count;
 }
 static DEVICE_ATTR_WO(setreg);
-
-/**
- * Read all CPLD register in binary mode.
- * @return number of byte read.
- */
-static ssize_t dump_read(struct file *filp, struct kobject *kobj,
-                struct bin_attribute *attr, char *buf,
-                loff_t off, size_t count)
-{
-    unsigned long i=0;
-    ssize_t status;
-
-    mutex_lock(&cpld_data->cpld_lock);
-begin:
-    if(i < count){
-        buf[i++] = inb(VERSION_ADDR + off);
-        off++;
-        msleep(1);
-        goto begin;
-    }
-    status = count;
-exit:
-    mutex_unlock(&cpld_data->cpld_lock);
-    return status;
-}
-static BIN_ATTR_RO(dump, CPLD_REGISTER_SIZE);
 
 /**
  * Show system led status - on/off/1k/4k
@@ -311,14 +287,8 @@ static struct attribute *baseboard_cpld_attrs[] = {
     NULL,
 };
 
-static struct bin_attribute *baseboard_cpld_bin_attrs[] = {
-    &bin_attr_dump,
-    NULL,
-};
-
 static struct attribute_group baseboard_cpld_attrs_grp = {
     .attrs = baseboard_cpld_attrs,
-    .bin_attrs = baseboard_cpld_bin_attrs,
 };
 
 static struct resource baseboard_cpld_resources[] = {
@@ -348,7 +318,6 @@ static int baseboard_cpld_drv_probe(struct platform_device *pdev)
 {
     struct resource *res;
     int ret =0;
-    int portid_count;
 
     cpld_data = devm_kzalloc(&pdev->dev, sizeof(struct baseboard_cpld_data),
         GFP_KERNEL);
