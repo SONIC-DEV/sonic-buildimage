@@ -2,7 +2,7 @@
 
 __author__ = 'Wirut G.<wgetbumr@celestica.com>'
 __license__ = "GPL"
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 __status__ = "Development"
 
 import requests
@@ -37,13 +37,19 @@ class PsuUtil(PsuBase):
         return self.fru_status_list, self.psu_info_list
 
     def airflow_selector(self, pn):
-        # Set input type.
-        return {
-            "DPS-1100FB": "FTOB",
-            "DPS-1100AB": "BTOF",
-            "FSJ026-A20G": "FTOB",
-            "FSJ038-A20G": "BTOF"
-        }.get(pn, "Unknown")
+        # Set airflow type
+        pn = pn.upper()
+        if "DPS-1100FB" in pn:
+            airflow = "FTOB"
+        elif "DPS-1100AB" in pn:
+            airflow = "BTOF"
+        elif "FSJ026-A20G" in pn:
+            airflow = "FTOB"
+        elif "FSJ038-A20G" in pn:
+            airflow = "BTOF"
+        else:
+            airflow = "Unknown"
+        return airflow
 
     def get_num_psus(self):
         """
@@ -236,7 +242,7 @@ class PsuUtil(PsuBase):
                     psu_status_dict["InputStatus"] = True if psu_pw_status and psu_ps_status else False
                     psu_status_dict["OutputStatus"] = ac_status
                     psu_status_dict["AirFlow"] = self.airflow_selector(
-                        psu_status_dict["PN"].split()[0])
+                        psu_status_dict["PN"])
                 all_psu_dict[find_psu[0]] = psu_status_dict
 
         return all_psu_dict
