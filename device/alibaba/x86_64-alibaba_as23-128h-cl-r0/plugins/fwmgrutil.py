@@ -95,7 +95,7 @@ class FwMgrUtil(FwMgrUtilBase):
         bmc_version = None
 
         bmc_version_key = "OpenBMC Version"
-        bmc_info_req = requests.get(self.bmc_info_url)
+        bmc_info_req = requests.get(self.bmc_info_url, timeout=60)
         if bmc_info_req.status_code == 200:
             bmc_info_json = bmc_info_req.json()
             bmc_info = bmc_info_json.get('Information')
