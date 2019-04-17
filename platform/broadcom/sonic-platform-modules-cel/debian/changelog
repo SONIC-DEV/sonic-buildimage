@@ -1,3 +1,9 @@
+sonic-cel-platform-modules (1.0) unstable; urgency=low
+
+  * Introduce seastone2 platform module.
+
+ -- Pradchaya Phucharoen <pphuchar@celestica.com>  Tue, 9 Apr 2019 17:27:29 +0800
+
 sonic-cel-platform-modules (0.9) unstable; urgency=low
 
   * Add haliburton platform module.
