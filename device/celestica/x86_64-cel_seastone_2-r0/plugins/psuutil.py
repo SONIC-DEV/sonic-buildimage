@@ -14,6 +14,7 @@ class PsuUtil(PsuBase):
     """Platform-specific PSUutil class"""
 
     def __init__(self):
+        self.ipmi_sensor = "docker exec -ti pmon ipmitool sensor"
         PsuBase.__init__(self)
 
     def run_command(self, command):
@@ -26,7 +27,11 @@ class PsuUtil(PsuBase):
         return out
     
     def find_value(self, grep_string):
-        return re.findall("[-+]?\d*\.\d+|\d+", grep_string)
+        result = re.search(".+\| (0x\d{2})\d{2}\|.+", grep_string)
+        if result:
+            return result.group(1)
+        else:
+            return result
         
     def get_num_psus(self):
         """
@@ -44,15 +49,20 @@ class PsuUtil(PsuBase):
         """
         if index is None:
             return False
-        grep_key = "PSUL_CIn" if index == 1 else "PSUR_CIn"
-        grep_string = self.run_command('ipmitool sdr | grep '+ grep_key)
-        raw_cIn_value = self.find_value(grep_string)
-        cIn_value = float(raw_cIn_value[0])
+
+        grep_key = "PSUL_Status" if index == 1 else "PSUR_Status"
+        grep_string = self.run_command(self.ipmi_sensor + ' | grep '+ grep_key)
+        status_byte = self.find_value(grep_string)
         
-        if float(cIn_value) == 0.0:
+        if status_byte is None:
             return False
 
-        return True
+        failure_detected = (int(status_byte, 16) >> 1) & 1
+        input_lost = (int(status_byte, 16) >> 3) & 1
+        if failure_detected or input_lost:
+            return False
+        else:
+            return True
 
     def get_psu_presence(self, index):
         """
@@ -64,5 +74,15 @@ class PsuUtil(PsuBase):
         if index is None:
             return False
 
-        ### TBD ###
-        return True
+        grep_key = "PSUL_Status" if index == 1 else "PSUR_Status"
+        grep_string = self.run_command(self.ipmi_sensor + ' | grep '+ grep_key)
+        status_byte = self.find_value(grep_string)
+        
+        if status_byte is None:
+            return False
+        
+        presence = ( int(status_byte, 16) >> 0 ) & 1
+        if presence:
+            return True
+        else:
+            return False
