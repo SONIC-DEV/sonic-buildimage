@@ -25,7 +25,7 @@
  */
 
 #ifndef TEST_MODE
-#define MOD_VERSION "2.1.1"
+#define MOD_VERSION "2.1.2"
 #else
 #define MOD_VERSION "TEST"
 #endif
@@ -409,9 +409,9 @@ struct fpga_device{
 };
 
 static struct fpga_device fpga_dev = {
-    .data_base_addr = NULL,
-    .data_mmio_start = NULL,
-    .data_mmio_len = NULL,
+    .data_base_addr = 0,
+    .data_mmio_start = 0,
+    .data_mmio_len = 0,
 };
 
 struct seastone2_fpga_data {
@@ -419,7 +419,7 @@ struct seastone2_fpga_data {
     struct i2c_client *sff_i2c_clients[SFF_PORT_TOTAL];
     struct i2c_adapter *i2c_adapter[VIRTUAL_I2C_PORT_LENGTH];
     struct mutex fpga_lock;         // For FPGA internal lock
-    unsigned long fpga_read_addr;
+    void __iomem * fpga_read_addr;
     uint8_t cpld1_read_addr;
     uint8_t cpld2_read_addr;
 };
@@ -578,47 +578,11 @@ static ssize_t set_fpga_reg_value(struct device *dev, struct device_attribute *d
 }
 
 /**
- * Read all FPGA XCVR register in binary mode.
- * @param  filp  [description]
- * @param  kobj  [description]
- * @param  attr  [description]
- * @param  buf   [description]
- * @param  off   [description]
- * @param  count [description]
- * @return       [description]
- */
-static ssize_t dump_read(struct file *filp, struct kobject *kobj,
-                struct bin_attribute *attr, char *buf,
-                loff_t off, size_t count)
-{
-    unsigned long i=0;
-    ssize_t status;
-    u8 read_reg;
-
-    if( off + count > PORT_XCVR_REGISTER_SIZE ){
-        return -EINVAL;
-    }
-    mutex_lock(&fpga_data->fpga_lock);
-    while(i < count){
-        read_reg = ioread8(fpga_dev.data_base_addr + SFF_PORT_CTRL_BASE + off + i);
-        buf[i++] = read_reg;
-    }
-    status = count;
-    mutex_unlock(&fpga_data->fpga_lock);
-    return status;
-}
-
-/**
  * Show FPGA port XCVR ready status
- * @param  dev  [description]
- * @param  attr [description]
- * @param  buf  [description]
- * @return      [description]
  */
 static ssize_t ready_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
     u32 data;
-    struct sff_device_data *dev_data = dev_get_drvdata(dev);
     unsigned int REGISTER = FPGA_PORT_XCVR_READY;
 
     mutex_lock(&fpga_data->fpga_lock);
@@ -632,12 +596,6 @@ static DEVICE_ATTR( getreg, 0600, get_fpga_reg_value, set_fpga_reg_address);
 static DEVICE_ATTR( scratch, 0600, get_fpga_scratch, set_fpga_scratch);
 static DEVICE_ATTR( setreg, 0200, NULL , set_fpga_reg_value);
 static DEVICE_ATTR_RO(ready);
-static BIN_ATTR_RO( dump, PORT_XCVR_REGISTER_SIZE);
-
-static struct bin_attribute *fpga_bin_attrs[] = {
-        &bin_attr_dump,
-        NULL,
-};
 
 static struct attribute *fpga_attrs[] = {
         &dev_attr_getreg.attr,
@@ -649,18 +607,17 @@ static struct attribute *fpga_attrs[] = {
 
 static struct attribute_group fpga_attr_grp = {
         .attrs = fpga_attrs,
-        .bin_attrs = fpga_bin_attrs,
 };
 
 /* SW CPLDs attributes */
-static ssize_t cpld1_dump_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t cpld1_getreg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
     // CPLD register is one byte
     uint8_t data;
     fpga_i2c_access(fpga_data->i2c_adapter[VIRTUAL_I2C_CPLD_INDEX],CPLD1_SLAVE_ADDR,0x00,I2C_SMBUS_READ,fpga_data->cpld1_read_addr,I2C_SMBUS_BYTE_DATA,(union i2c_smbus_data*)&data);
     return sprintf(buf,"0x%2.2x\n",data);
 }
-static ssize_t cpld1_dump_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+static ssize_t cpld1_getreg_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
     uint8_t addr;
     char *last;
@@ -671,7 +628,7 @@ static ssize_t cpld1_dump_store(struct device *dev, struct device_attribute *att
     fpga_data->cpld1_read_addr = addr;
     return size;
 }
-struct device_attribute dev_attr_cpld1_dump = __ATTR(dump,0600,cpld1_dump_show,cpld1_dump_store);
+struct device_attribute dev_attr_cpld1_getreg = __ATTR(getreg,0600,cpld1_getreg_show,cpld1_getreg_store);
 
 static ssize_t cpld1_scratch_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -714,7 +671,7 @@ static ssize_t cpld1_setreg_store(struct device *dev, struct device_attribute *a
 
     tok = strsep((char**)&pclone, " ");
     if(tok == NULL){
-        return sprintf(buf,"ERROR line %d",__LINE__);
+        return -EINVAL;
     }
     addr = (uint8_t)strtoul(tok,&last,16);
     if(addr == 0 && tok == last){
@@ -722,7 +679,7 @@ static ssize_t cpld1_setreg_store(struct device *dev, struct device_attribute *a
     }
     tok = strsep((char**)&pclone, " ");
     if(tok == NULL){
-        return sprintf(buf,"ERROR line %d",__LINE__);
+        return -EINVAL;
     }
     value = (uint8_t)strtoul(tok,&last,16);
     if(value == 0 && tok == last){
@@ -731,14 +688,14 @@ static ssize_t cpld1_setreg_store(struct device *dev, struct device_attribute *a
 
     err = fpga_i2c_access(fpga_data->i2c_adapter[VIRTUAL_I2C_CPLD_INDEX],CPLD1_SLAVE_ADDR,0x00,I2C_SMBUS_WRITE,addr,I2C_SMBUS_BYTE_DATA,(union i2c_smbus_data*)&value);
     if(err < 0)
-        return sprintf(buf,"ERROR line %d",__LINE__);
+        return err;
 
     return size;
 }
 struct device_attribute dev_attr_cpld1_setreg = __ATTR(setreg,0200,NULL,cpld1_setreg_store);
 
 static struct attribute *cpld1_attrs[] = {
-        &dev_attr_cpld1_dump.attr,
+        &dev_attr_cpld1_getreg.attr,
         &dev_attr_cpld1_scratch.attr,
         &dev_attr_cpld1_setreg.attr,
         NULL,
@@ -748,14 +705,14 @@ static struct attribute_group cpld1_attr_grp = {
         .attrs = cpld1_attrs,
 };
 
-static ssize_t cpld2_dump_show(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t cpld2_getreg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
     // CPLD register is one byte
     uint8_t data;
     fpga_i2c_access(fpga_data->i2c_adapter[VIRTUAL_I2C_CPLD_INDEX],CPLD2_SLAVE_ADDR,0x00,I2C_SMBUS_READ,fpga_data->cpld2_read_addr,I2C_SMBUS_BYTE_DATA,(union i2c_smbus_data*)&data);
     return sprintf(buf,"0x%2.2x\n",data);
 }
-static ssize_t cpld2_dump_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+static ssize_t cpld2_getreg_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
 {
     // CPLD register is one byte
     uint32_t addr;
@@ -767,7 +724,7 @@ static ssize_t cpld2_dump_store(struct device *dev, struct device_attribute *att
     fpga_data->cpld2_read_addr = addr;
     return size;
 }
-struct device_attribute dev_attr_cpld2_dump = __ATTR(dump,0600,cpld2_dump_show,cpld2_dump_store);
+struct device_attribute dev_attr_cpld2_getreg = __ATTR(getreg,0600,cpld2_getreg_show,cpld2_getreg_store);
 
 static ssize_t cpld2_scratch_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -834,7 +791,7 @@ static ssize_t cpld2_setreg_store(struct device *dev, struct device_attribute *a
 struct device_attribute dev_attr_cpld2_setreg = __ATTR(setreg,0200,NULL,cpld2_setreg_store);
 
 static struct attribute *cpld2_attrs[] = {
-        &dev_attr_cpld2_dump.attr,
+        &dev_attr_cpld2_getreg.attr,
         &dev_attr_cpld2_scratch.attr,
         &dev_attr_cpld2_setreg.attr,
         NULL,
@@ -1174,7 +1131,7 @@ static int i2c_wait_ack(struct i2c_adapter *a,unsigned long timeout,int writing)
     unsigned int master_bus = new_data->pca9548.master_bus;
 
     if(master_bus < I2C_MASTER_CH_1 || master_bus > I2C_MASTER_CH_TOTAL){
-        error = -ENXIO;
+        error = -EINVAL;
         return error;
     }
 
@@ -1243,12 +1200,28 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
               int size, union i2c_smbus_data *data)
 {
         int error = 0;
+        int cnt = 0;
+        int bid = 0;
         struct i2c_dev_data *dev_data;
+        void __iomem *pci_bar;
+        unsigned int  portid, master_bus;
+
+        unsigned int REG_FDR0;
+        unsigned int REG_CR0;
+        unsigned int REG_SR0;
+        unsigned int REG_DR0;
+        unsigned int REG_ID0;
+
+        REG_FDR0 = 0;
+        REG_CR0  = 0;
+        REG_SR0  = 0;
+        REG_DR0  = 0;
+        REG_ID0  = 0;
+
         /* Write the command register */
         dev_data = i2c_get_adapdata(adapter);
-
-        unsigned int  portid = dev_data->portid;
-        void __iomem *pci_bar = fpga_dev.data_base_addr;
+        portid = dev_data->portid;
+        pci_bar = fpga_dev.data_base_addr;
 
 #ifdef DEBUG_KERN
         printk(KERN_INFO "portid %2d|@ 0x%2.2X|f 0x%4.4X|(%d)%-5s| (%d)%-15s|CMD %2.2X "
@@ -1277,13 +1250,7 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
                 goto Done;
         }
 
-        unsigned int REG_FDR0;
-        unsigned int REG_CR0;
-        unsigned int REG_SR0;
-        unsigned int REG_DR0;
-        unsigned int REG_ID0;
-
-        unsigned int master_bus = dev_data->pca9548.master_bus;
+        master_bus = dev_data->pca9548.master_bus;
 
         if(master_bus < I2C_MASTER_CH_1 || master_bus > I2C_MASTER_CH_TOTAL){
             error = -ENXIO;
@@ -1297,8 +1264,6 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
         REG_ID0   = I2C_MASTER_PORT_ID_1 + (master_bus-1)*0x0100;
 
         iowrite8(portid,pci_bar+REG_ID0);
-
-        int cnt=0;
 
         ////[S][ADDR/R]
         // Clear status register
@@ -1381,7 +1346,7 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
                     size == I2C_SMBUS_BLOCK_DATA ||
                     size == I2C_SMBUS_I2C_BLOCK_DATA
             )){
-            int bid=0;
+            bid = 0;
             info( "MS prepare to sent [%d bytes]",cnt);
             if(size == I2C_SMBUS_BLOCK_DATA || size == I2C_SMBUS_I2C_BLOCK_DATA){
                 bid=1;      // block[0] is cnt;
@@ -1450,7 +1415,7 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
                         cnt = 0;  break;
             }
 
-            int bid = 0;
+            bid = 0;
             info( "MS Receive");
 
             //set to Receive mode
@@ -1495,7 +1460,6 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
             }
         }
 
-Stop:
         // [P]
         SET_REG_BIT_L(pci_bar+REG_CR0,I2C_CR_BIT_MSTA);
         info( "MS STOP");
@@ -1525,39 +1489,98 @@ static int fpga_i2c_access(struct i2c_adapter *adapter, u16 addr,
 {
     int error = 0;
     struct i2c_dev_data *dev_data;
+    unsigned char master_bus;
+    unsigned char switch_addr;
+    unsigned char channel;
+    uint16_t prev_port = 0;
+    unsigned char prev_switch;
+    unsigned char prev_ch;
+    int retry;
+
     dev_data = i2c_get_adapdata(adapter);
-    unsigned char master_bus = dev_data->pca9548.master_bus;
-    unsigned char switch_addr = dev_data->pca9548.switch_addr;
-    unsigned char channel = dev_data->pca9548.channel;
+    master_bus = dev_data->pca9548.master_bus;
+    switch_addr = dev_data->pca9548.switch_addr;
+    channel = dev_data->pca9548.channel;
 
     // Acquire the master resource.
-    mutex_lock(&fpga_i2c_master_locks[master_bus-1]);
-    uint16_t prev_port = fpga_i2c_lasted_access_port[master_bus-1];
+    mutex_lock(&fpga_i2c_master_locks[master_bus - 1]);
+    prev_port = fpga_i2c_lasted_access_port[master_bus - 1];
+    prev_switch = (unsigned char)(prev_port >> 8) & 0xFF;
+    prev_ch = (unsigned char)(prev_port & 0xFF);
 
-    if(switch_addr != 0xFF){
+    if (switch_addr != 0xFF) {
+
         // Check lasted access switch address on a master
-        if((unsigned char)(prev_port >> 8) == switch_addr){
-            // check if channel is the same
-            if((unsigned char)(prev_port & 0x00FF) != channel){
-                // set new PCA9548 at switch_addr to current
-                error= smbus_access(adapter,switch_addr,flags,I2C_SMBUS_WRITE,1 << channel,I2C_SMBUS_BYTE,NULL);
-                // update lasted port
-                fpga_i2c_lasted_access_port[master_bus-1] = switch_addr << 8 | channel;
-            }
-        }else{
+        if ( prev_switch != switch_addr && prev_switch != 0 ) {
             // reset prev_port PCA9548 chip
-            error= smbus_access(adapter,(u16)(prev_port >> 8),flags,I2C_SMBUS_WRITE,0x00,I2C_SMBUS_BYTE,NULL);
+            retry = 3;
+            while(retry--){
+                error = smbus_access(adapter, (u16)(prev_switch), flags, I2C_SMBUS_WRITE, 0x00, I2C_SMBUS_BYTE, NULL);
+                if(error >= 0){
+                    break;
+                }else{
+                    dev_dbg(&adapter->dev,"Failed to deselect ch %d of 0x%x, CODE %d\n", prev_ch, prev_switch, error);
+                }
+            }
+            if(retry < 0){
+                goto release_unlock;
+            }
             // set PCA9548 to current channel
-            error= smbus_access(adapter,switch_addr,flags,I2C_SMBUS_WRITE,1 << channel,I2C_SMBUS_BYTE,NULL);
+            retry = 3;
+            while(retry--){
+                error = smbus_access(adapter, switch_addr, flags, I2C_SMBUS_WRITE, 1 << channel, I2C_SMBUS_BYTE, NULL);
+                if(error >= 0){
+                    break;
+                }else{
+                    dev_dbg(&adapter->dev,"Failed to deselect ch %d of 0x%x, CODE %d\n", prev_ch, prev_switch, error);
+                }
+            }
+            if(retry < 0){
+                goto release_unlock;
+            }
             // update lasted port
-            fpga_i2c_lasted_access_port[master_bus-1] = switch_addr << 8 | channel;
+            fpga_i2c_lasted_access_port[master_bus - 1] = switch_addr << 8 | channel;
+
+        } else {
+            // check if channel is also changes
+            if ( prev_ch != channel || prev_switch == 0 ) {
+                // set new PCA9548 at switch_addr to current
+                retry = 3;
+                while(retry--){
+                    error = smbus_access(adapter, switch_addr, flags, I2C_SMBUS_WRITE, 1 << channel, I2C_SMBUS_BYTE, NULL);
+                    if(error >= 0){
+                        break;
+                    }else{
+                    dev_dbg(&adapter->dev,"Failed to deselect ch %d of 0x%x, CODE %d\n", prev_ch, prev_switch, error);
+                }
+            }
+            if(retry < 0){
+                goto release_unlock;
+            }
+            // update lasted port
+            fpga_i2c_lasted_access_port[master_bus - 1] = switch_addr << 8 | channel;
+            }
         }
     }
 
     // Do SMBus communication
-    error = smbus_access(adapter,addr,flags,rw,cmd,size,data);
-    // reset the channel
-    mutex_unlock(&fpga_i2c_master_locks[master_bus-1]);
+    error = smbus_access(adapter, addr, flags, rw, cmd, size, data);
+    if(error < 0){
+        dev_dbg( &adapter->dev,"smbus_xfer failed (%d) @ 0x%2.2X|f 0x%4.4X|(%d)%-5s| (%d)%-10s|CMD %2.2X "
+           , error, addr, flags, rw, rw == 1 ? "READ " : "WRITE"
+           , size,                  size == 0 ? "QUICK" :
+           size == 1 ? "BYTE" :
+           size == 2 ? "BYTE_DATA" :
+           size == 3 ? "WORD_DATA" :
+           size == 4 ? "PROC_CALL" :
+           size == 5 ? "BLOCK_DATA" :
+           size == 8 ? "I2C_BLOCK_DATA" :  "ERROR"
+           , cmd);
+    }
+
+release_unlock:    
+    mutex_unlock(&fpga_i2c_master_locks[master_bus - 1]);
+    dev_dbg(&adapter->dev,"switch ch %d of 0x%x -> ch %d of 0x%x\n", prev_ch, prev_switch, channel, switch_addr);
     return error;
 }
 
@@ -1594,9 +1617,9 @@ static const struct i2c_algorithm seastone2_i2c_algorithm = {
 static struct i2c_adapter * seastone2_i2c_init(struct platform_device *pdev, int portid, int bus_number_offset)
 {
     int error;
-
     struct i2c_adapter *new_adapter;
     struct i2c_dev_data *new_data;
+    void __iomem *i2c_freq_base_reg;
 
     new_adapter = kzalloc(sizeof(*new_adapter), GFP_KERNEL);
     if (!new_adapter){
@@ -1630,7 +1653,7 @@ static struct i2c_adapter * seastone2_i2c_init(struct platform_device *pdev, int
     snprintf(new_adapter->name, sizeof(new_adapter->name),
         "SMBus I2C Adapter PortID: %s", new_data->pca9548.calling_name);
 
-    void __iomem *i2c_freq_base_reg = fpga_dev.data_base_addr+I2C_MASTER_FREQ_1;
+    i2c_freq_base_reg = fpga_dev.data_base_addr+I2C_MASTER_FREQ_1;
     iowrite8(0x07,i2c_freq_base_reg+(new_data->pca9548.master_bus-1)*0x100); // 0x07 400kHz
     i2c_set_adapdata(new_adapter,new_data);
     error = i2c_add_numbered_adapter(new_adapter);
@@ -1683,6 +1706,7 @@ static int seastone2_drv_probe(struct platform_device *pdev)
     int ret = 0;
     int portid_count;
     uint8_t cpld1_version, cpld2_version;
+    struct sff_device_data *sff_data;
 
     /* The device class need to be instantiated before this function called */
     BUG_ON(fpgafwclass == NULL);
@@ -1813,7 +1837,7 @@ static int seastone2_drv_probe(struct platform_device *pdev)
         struct i2c_adapter *i2c_adap = fpga_data->i2c_adapter[portid_count];
         if(i2c_adap){
             fpga_data->sff_devices[portid_count] = seastone2_sff_init(portid_count);
-            struct sff_device_data *sff_data = dev_get_drvdata(fpga_data->sff_devices[portid_count]);
+            sff_data = dev_get_drvdata(fpga_data->sff_devices[portid_count]);
             BUG_ON(sff_data == NULL);
             if( sff_data->port_type == QSFP ){
                 fpga_data->sff_i2c_clients[portid_count] = i2c_new_device(i2c_adap, &sff8436_eeprom_info[0]);
@@ -1906,13 +1930,19 @@ static int seastone2_drv_remove(struct platform_device *pdev)
     return 0;
 }
 
+static struct platform_driver seastone2_drv = {
+    .probe  = seastone2_drv_probe,
+    .remove = __exit_p(seastone2_drv_remove),
+    .driver = {
+        .name   = DRIVER_NAME,
+    },
+};
+
 #ifdef TEST_MODE
     #define FPGA_PCI_BAR_NUM 2
 #else
     #define FPGA_PCI_BAR_NUM 0
 #endif
-
-
 
 static const struct pci_device_id fpga_id_table[] = {
     {  PCI_VDEVICE(XILINX, FPGA_PCIE_DEVICE_ID) },
@@ -1926,7 +1956,9 @@ static int fpga_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
     int err;
     struct device *dev = &pdev->dev;
-        if ((err = pci_enable_device(pdev))) {
+    uint32_t fpga_version;
+
+    if ((err = pci_enable_device(pdev))) {
         dev_err(dev, "pci_enable_device probe error %d for device %s\n",
             err, pci_name(pdev));
         return err;
@@ -1954,15 +1986,17 @@ static int fpga_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
     printk(KERN_INFO "FPGA PCIe driver probe OK.\n");
     printk(KERN_INFO "FPGA ioremap registers of size %lu\n",(unsigned long)fpga_dev.data_mmio_len);
-    printk(KERN_INFO "FPGA Virtual BAR %d at %8.8lx - %8.8lx\n",FPGA_PCI_BAR_NUM,(unsigned long)fpga_dev.data_base_addr,(unsigned long)fpga_dev.data_base_addr+ (unsigned long)fpga_dev.data_mmio_len);
+    printk(KERN_INFO "FPGA Virtual BAR %d at %8.8lx - %8.8lx\n", FPGA_PCI_BAR_NUM,
+            (unsigned long)fpga_dev.data_base_addr,
+            (unsigned long)(fpga_dev.data_base_addr + fpga_dev.data_mmio_len));
     printk(KERN_INFO "");
-    uint32_t buff = ioread32(fpga_dev.data_base_addr);
-    printk(KERN_INFO "FPGA VERSION : %8.8x\n", buff);
+    fpga_version = ioread32(fpga_dev.data_base_addr);
+    printk(KERN_INFO "FPGA VERSION : %8.8x\n", fpga_version);
     fpgafw_init();
+    platform_device_register(&seastone2_dev);
+    platform_driver_register(&seastone2_drv);
     return 0;
 
-reg_release:
-    pci_iounmap(pdev, fpga_dev.data_base_addr);
 pci_release:
     pci_release_regions(pdev);
 pci_disable:
@@ -1972,6 +2006,8 @@ pci_disable:
 
 static void fpga_pci_remove(struct pci_dev *pdev)
 {
+    platform_driver_unregister(&seastone2_drv);
+    platform_device_unregister(&seastone2_dev); 
     fpgafw_exit();
     pci_iounmap(pdev, fpga_dev.data_base_addr);
     pci_release_regions(pdev);
@@ -1984,15 +2020,6 @@ static struct pci_driver pci_dev_ops = {
     .probe      = fpga_pci_probe,
     .remove     = fpga_pci_remove,
     .id_table   = fpga_id_table,
-};
-
-
-static struct platform_driver seastone2_drv = {
-    .probe  = seastone2_drv_probe,
-    .remove = __exit_p(seastone2_drv_remove),
-    .driver = {
-        .name   = DRIVER_NAME,
-    },
 };
 
 enum{
@@ -2118,21 +2145,13 @@ int seastone2_init(void)
 {
     int rc;
     rc = pci_register_driver(&pci_dev_ops);
-    if (rc)
+    if(rc)
         return rc;
-    if(fpga_dev.data_base_addr == NULL){
-        printk(KERN_ALERT "FPGA PCIe device not found!\n");
-        return -ENODEV;
-    }
-    platform_device_register(&seastone2_dev);
-    platform_driver_register(&seastone2_drv);
     return 0;
 }
 
 void seastone2_exit(void)
 {
-    platform_driver_unregister(&seastone2_drv);
-    platform_device_unregister(&seastone2_dev);
     pci_unregister_driver(&pci_dev_ops);
 }
 
