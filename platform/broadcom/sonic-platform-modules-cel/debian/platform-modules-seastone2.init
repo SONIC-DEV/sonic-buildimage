@@ -17,6 +17,8 @@ start)
 
     # Add driver to support HW
     modprobe i2c-dev
+    modprobe ipmi_devintf
+    modprobe ipmi_si
     modprobe baseboard_cpld
     modprobe switchboard_fpga
     modprobe mc24lc64t
