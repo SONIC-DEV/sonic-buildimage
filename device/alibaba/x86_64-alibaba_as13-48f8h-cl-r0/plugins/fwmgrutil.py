@@ -269,11 +269,17 @@ class FwMgrUtil(FwMgrUtilBase):
             json_data = dict()
             json_data["path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
             json_data["password"] = bmc_pwd
+
+            # Set flash type
             fw_extra_str = str(fw_extra).lower()
+            current_bmc = self.get_running_bmc()
             flash = fw_extra_str if fw_extra_str in [
                 "master", "slave", "both"] else "both"
+            if fw_extra_str == "pingpong":
+                flash = "master" if current_bmc == "slave" else "slave"
             json_data["flash"] = flash
 
+            # Install BMC
             if flash == "both":
                 print("Installing BMC as master mode...")
                 json_data["flash"] = "master"
@@ -287,10 +293,15 @@ class FwMgrUtil(FwMgrUtilBase):
             print("Installing BMC as %s mode..." % json_data["flash"])
             r = requests.post(self.bmc_info_url, json=json_data)
             if r.status_code == 200 and 'success' in r.json().get('result'):
-                print("Done, Rebooting BMC.....")
+                if fw_extra_str == "pingpong":
+                    print("Switch to boot from %s" % flash)
+                    self.set_bmc_boot_flash(flash)
+                print("Rebooting BMC.....")
                 reboot_dict = dict()
-                reboot_dict["reboot"] = "yes"
-                r = requests.post(self.bmc_info_url, json=reboot_dict)
+                reboot_dict["data"] = "source /usr/local/bin/openbmc-utils.sh;boot_from %s" % flash
+                r = requests.post(self.bmc_raw_command_url, json=reboot_dict)
+                if r.status_code != 200:
+                    return False
                 print("Done")
             else:
                 print("Failed: Unable to install BMC image")
@@ -570,3 +581,50 @@ class FwMgrUtil(FwMgrUtilBase):
             last_update_list = [last_update_list[-1]]
 
         return last_update_list
+
+    def get_running_bmc(self):
+        """
+            Get booting flash of running BMC.
+            @return a string, "master" or "slave"
+        """
+        json_data = dict()
+        json_data["data"] = "/usr/local/bin/boot_info.sh"
+        r = requests.post(self.bmc_raw_command_url, json=json_data)
+        try:
+            boot_info_list = r.json().get('result')
+            for boot_info_raw in boot_info_list:
+                boot_info = boot_info_raw.split(":")
+                if "Current Boot Code Source" in boot_info[0]:
+                    flash = "master" if "master "in boot_info[1].lower(
+                    ) else "slave"
+                    return flash
+            raise Exception(
+                "Error: Unable to detect booting flash of running BMC")
+        except Exception as e:
+            raise Exception(e)
+
+    def set_bmc_boot_flash(self, flash):
+        """
+            Set booting flash of BMC
+            @param flash should be "master" or "slave"
+        """
+        current_bmc = self.get_running_bmc()
+        if current_bmc == flash.lower():
+            return True
+        json_data = dict()
+        json_data["data"] = "source /usr/local/bin/openbmc-utils.sh;devmem_set_bit 0x1e78502c 7"
+        r = requests.post(self.bmc_raw_command_url, json=json_data)
+        if r.status_code != 200:
+            return False
+        return True
+
+    def reboot_bmc(self):
+        """
+            Reboot BMC
+        """
+        reboot_dict = dict()
+        reboot_dict["reboot"] = "yes"
+        r = requests.post(self.bmc_info_url, json=reboot_dict)
+        if r.status_code != 200:
+            return False
+        return True
