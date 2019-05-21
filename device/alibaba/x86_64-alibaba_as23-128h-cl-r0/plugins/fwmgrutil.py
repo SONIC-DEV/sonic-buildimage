@@ -807,3 +807,23 @@ class FwMgrUtil(FwMgrUtilBase):
         if r.status_code != 200:
             return False
         return True
+
+    def get_current_bios(self):
+        """
+            # Get booting bios image of current running host OS
+            # @return a string, "master" or "slave"
+        """
+        json_data = dict()
+        json_data["data"] = "source /usr/local/bin/openbmc-utils.sh;come_boot_info"
+        r = requests.post(self.bmc_raw_command_url, json=json_data)
+        try:
+            cpu_boot_info_list = r.json().get('result')
+            for cpu_boot_info_raw in cpu_boot_info_list:
+                if "COMe CPU boots from BIOS" in cpu_boot_info_raw:
+                    bios_image = "master" if "master "in cpu_boot_info_raw.lower(
+                    ) else "slave"
+                    return bios_image
+            raise Exception(
+                "Error: Unable to detect current running bios image")
+        except Exception as e:
+            raise Exception(e)
