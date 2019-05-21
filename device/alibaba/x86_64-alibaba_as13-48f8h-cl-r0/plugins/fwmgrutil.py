@@ -579,6 +579,171 @@ class FwMgrUtil(FwMgrUtilBase):
 
         return last_update_list
 
+    def firmware_program(self, fw_type, fw_path, fw_extra=None):
+        """
+            Program FPGA and/or CPLD firmware only, but do not refresh them
+
+            @param fw_type value can be: FPGA, CPLD
+            @param fw_path a string of firmware file path, seperated by ':', it should
+                        match the sequence of param @fw_type
+            @param fw_extra a string of firmware subtype, i.e CPU_CPLD, BOARD_CPLD,
+                            FAN_CPLD, LC_CPLD, etc. Subtypes are seperated by ':'
+            @return True when all required firmware is program succefully,
+                    False otherwise.
+
+            Example:
+                self.firmware_program("CPLD", "/cpu_cpld.vme:/lc_cpld", \
+                                    "CPU_CPLD:LC_CPLD")
+                or
+                self.firmware_program("FPGA", "/fpga.bin")
+        """
+        fw_type = fw_type.lower()
+        upgrade_list = []
+        bmc_pwd = self.get_bmc_pass()
+        if not bmc_pwd and fw_type != "fpga":
+            print("Failed: BMC credential not found")
+            return False
+
+        if fw_type == 'fpga':
+            print("FPGA Upgrade")
+            command = 'fpga_prog ' + fw_path
+            print("Running command : ", command)
+            process = subprocess.Popen(
+                command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            while True:
+                output = process.stdout.readline()
+                if output == '' and process.poll() is not None:
+                    break
+                if output:
+                    print(output.strip())
+            else:
+                print("Failed: Invalid fpga image")
+                return False
+
+            print("Done")
+            return True
+
+        elif 'cpld' in fw_type:
+            print("CPLD Upgrade")
+            # Check input
+            fw_extra_str = str(fw_extra).upper()
+            if ":" in fw_path and ":" in fw_extra_str:
+                fw_path_list = fw_path.split(":")
+                fw_extra_str_list = fw_extra_str.split(":")
+            else:
+                fw_path_list = [fw_path]
+                fw_extra_str_list = [fw_extra_str]
+
+            if len(fw_path_list) != len(fw_extra_str_list):
+                print("Failed: Invalid input")
+                return False
+
+            data_list = list(zip(fw_path_list, fw_extra_str_list))
+            for data in data_list:
+                fw_path = data[0]
+                fw_extra_str = data[1]
+
+                # Set fw_extra
+                fw_extra_str = {
+                    "FAN_CPLD": "fan",
+                    "CPU_CPLD": "cpu",
+                    "BASE_CPLD": "base",
+                    "COMBO_CPLD": "combo",
+                    "SW_CPLD1": "switch",
+                    "SW_CPLD2": "switch"
+                }.get(fw_extra_str, None)
+
+                if fw_extra_str is None:
+                    print("Failed: Invalid extra information string")
+                    return False
+
+                # Uploading image to BMC
+                print("Upgrade %s cpld" % fw_extra_str)
+                print("Uploading image to BMC...")
+                upload_file = self.upload_file_bmc(fw_path)
+                if not upload_file:
+                    print("Failed: Unable to upload image to BMC")
+                    return False
+
+                filename_w_ext = os.path.basename(fw_path)
+                json_data = dict()
+                json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
+                json_data["password"] = bmc_pwd
+                json_data["device"] = "cpld"
+                json_data["reboot"] = "no"
+                json_data["type"] = fw_extra_str
+
+                # Call BMC api to install cpld image
+                print("Installing...")
+                r = requests.post(self.fw_upgrade_url, json=json_data)
+                if r.status_code != 200 or 'success' not in r.json().get('result'):
+                    print("Failed: Invalid cpld image")
+                    return False
+
+                print("%s cpld upgrade completed\n" % fw_extra_str)
+                upgrade_list.append(filename_w_ext.lower())
+
+            self.upgrade_logger(upgrade_list)
+            print("Done")
+            return True
+
+        else:
+            print("Failed: Invalid firmware type")
+            return False
+
+        self.upgrade_logger(upgrade_list)
+        return True
+
+    def firmware_refresh(self, fpga_list, cpld_list, fw_extra=None):
+        """
+            Refresh firmware and take extra action when necessary.
+            @param fpga_list a list of FPGA names
+            @param cpld_list a list of CPLD names
+            @return True if refresh succefully and no power cycle action is taken.
+
+            @Note extra action should be: power cycle the whole system(except BMC) when
+                                        CPU_CPLD or BOARD_CPLD or FPGA is refreshed.
+                                        No operation if the power cycle is not needed.
+
+            Example:
+            self.firmware_refresh(["FPGA"], ["CPU_CPLD", "LC_CPLD"], "/tmp/fw/refresh.vme")
+            or
+            self.firmware_refresh("FPGA", None, None)
+            or
+            self.firmware_refresh(None, ["FAN_CPLD", "LC1_CPLD", "BOARD_CPLD"], "/tmp/fw/refresh.vme")
+        """
+        upgrade_list = []
+        if not fpga_list and not cpld_list:
+            return False
+
+        if cpld_list and ("COMBO_CPLD" in cpld_list or "BASE_CPLD" in cpld_list or "CPU_CPLD" in cpld_list):
+            fw_path = fw_extra
+            upload_file = self.upload_file_bmc(fw_path)
+            if not upload_file:
+                print("Failed: Unable to upload refresh image to BMC")
+                return False
+
+            filename_w_ext = os.path.basename(fw_path)
+            upgrade_list.append(filename_w_ext.lower())
+            self.upgrade_logger(upgrade_list)
+            json_data = dict()
+            json_data["data"] = "echo base /home/root/%s > /tmp/cpld_refresh" % filename_w_ext
+            r = requests.post(self.bmc_raw_command_url, json=json_data)
+            if r.status_code != 200:
+                print("Failed: Invalid refresh image")
+                return False
+
+        if fpga_list:
+            json_data = dict()
+            json_data["data"] = "echo fpga > /tmp/cpld_refresh"
+            r = requests.post(self.bmc_raw_command_url, json=json_data)
+            if r.status_code != 200:
+                print("Failed: Unable to load new FPGA")
+                return False
+
+        return True
+
     def get_running_bmc(self):
         """
             Get booting flash of running BMC.
