@@ -297,10 +297,7 @@ class FwMgrUtil(FwMgrUtilBase):
                     print("Switch to boot from %s" % flash)
                     self.set_bmc_boot_flash(flash)
                 print("Rebooting BMC.....")
-                reboot_dict = dict()
-                reboot_dict["data"] = "source /usr/local/bin/openbmc-utils.sh;boot_from %s" % flash
-                r = requests.post(self.bmc_raw_command_url, json=reboot_dict)
-                if r.status_code != 200:
+                if not self.reboot_bmc():
                     return False
                 print("Done")
             else:
@@ -608,11 +605,10 @@ class FwMgrUtil(FwMgrUtilBase):
             Set booting flash of BMC
             @param flash should be "master" or "slave"
         """
-        current_bmc = self.get_running_bmc()
-        if current_bmc == flash.lower():
-            return True
+        if flash.lower() not in ["master", "slave"]:
+            return False
         json_data = dict()
-        json_data["data"] = "source /usr/local/bin/openbmc-utils.sh;devmem_set_bit 0x1e78502c 7"
+        json_data["data"] = "source /usr/local/bin/openbmc-utils.sh;bmc_reboot %s" % flash
         r = requests.post(self.bmc_raw_command_url, json=json_data)
         if r.status_code != 200:
             return False
@@ -622,9 +618,9 @@ class FwMgrUtil(FwMgrUtilBase):
         """
             Reboot BMC
         """
-        reboot_dict = dict()
-        reboot_dict["reboot"] = "yes"
-        r = requests.post(self.bmc_info_url, json=reboot_dict)
+        json_data = dict()
+        json_data["data"] = "source /usr/local/bin/openbmc-utils.sh;bmc_reboot reboot"
+        r = requests.post(self.bmc_raw_command_url, json=json_data)
         if r.status_code != 200:
             return False
         return True
