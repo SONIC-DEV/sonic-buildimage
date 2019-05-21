@@ -37,6 +37,10 @@ class FwMgrUtil(FwMgrUtilBase):
         self.switchboard_cpld3_path = "/sys/devices/platform/%s.switchboard/CPLD3/getreg" % self.platform_name
         self.switchboard_cpld4_path = "/sys/devices/platform/%s.switchboard/CPLD4/getreg" % self.platform_name
         self.bmc_pwd_path = "/usr/local/etc/bmcpwd"
+        self.bmc_wdt_ctrl = "/usr/local/etc/bmc_wdt.sh"
+
+    def __del__(self):
+        self.__bmc_watchdog_handler("enable")
 
     def __get_register_value(self, path, register):
         cmd = "echo {1} > {0}; cat {0}".format(path, register)
@@ -71,6 +75,10 @@ class FwMgrUtil(FwMgrUtilBase):
             return rc
         os.system('modprobe switchboard_fpga')
         return 0
+
+    def __bmc_watchdog_handler(self, state):
+        command = "systemctl stop2 bmc_wdt.timer && sh %s stop" % self.bmc_wdt_ctrl if state == "disable" else "systemctl start bmc_wdt.timer"
+        return subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def get_bmc_pass(self):
         if os.path.exists(self.bmc_pwd_path):
@@ -248,6 +256,7 @@ class FwMgrUtil(FwMgrUtilBase):
                 or 'cpld_fan_come_board', etc. If None, upgrade all CPLD/FPGA firmware. for fw_type 'bios' and 'bmc',
                  value should be one of 'master' or 'slave' or 'both'
         """
+        self.__bmc_watchdog_handler("disable")
         fw_type = fw_type.lower()
         upgrade_list = []
         bmc_pwd = self.get_bmc_pass()
@@ -597,6 +606,7 @@ class FwMgrUtil(FwMgrUtilBase):
                 or
                 self.firmware_program("FPGA", "/fpga.bin")
         """
+        self.__bmc_watchdog_handler("disable")
         fw_type = fw_type.lower()
         upgrade_list = []
         bmc_pwd = self.get_bmc_pass()
