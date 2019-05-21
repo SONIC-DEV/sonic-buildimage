@@ -121,7 +121,7 @@ class FwMgrUtil(FwMgrUtilBase):
             data = child.read()
             print(data)
             child.close
-            return True
+            return os.path.isfile(fw_path)
         return False
 
     def get_cpld_version(self):
@@ -294,7 +294,8 @@ class FwMgrUtil(FwMgrUtilBase):
                 json_data["flash"] = "master"
                 r = requests.post(self.bmc_info_url, json=json_data)
                 if r.status_code != 200 or 'success' not in r.json().get('result'):
-                    print("Failed: Unable to install BMC image")
+                    print("Failed: BMC API report error code %d" %
+                          r.status_code)
                     return False
                 print("Done")
                 json_data["flash"] = "slave"
@@ -617,7 +618,7 @@ class FwMgrUtil(FwMgrUtilBase):
         if fw_type == 'fpga':
             print("FPGA Upgrade")
             command = 'fpga_prog ' + fw_path
-            print("Running command : ", command)
+            print("Running command: %s" % command)
             process = subprocess.Popen(
                 command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -627,11 +628,6 @@ class FwMgrUtil(FwMgrUtilBase):
                     break
                 if output:
                     print(output.strip())
-            else:
-                print("Failed: Invalid fpga image")
-                return False
-
-            print("Done")
             return True
 
         elif 'cpld' in fw_type:
@@ -650,12 +646,15 @@ class FwMgrUtil(FwMgrUtilBase):
                 return False
 
             data_list = list(zip(fw_path_list, fw_extra_str_list))
+            pass_count = 0
             for data in data_list:
                 fw_path = data[0]
                 fw_extra_str = data[1]
 
                 # Set fw_extra
                 fw_extra_str = {
+                    "TOP_LC_CPLD": "top_lc",
+                    "BOT_LC_CPLD": "bottom_lc",
                     "FAN_CPLD": "fan",
                     "CPU_CPLD": "cpu",
                     "BASE_CPLD": "base",
@@ -664,40 +663,49 @@ class FwMgrUtil(FwMgrUtilBase):
                     "SW_CPLD2": "switch"
                 }.get(fw_extra_str, None)
 
-                if fw_extra_str is None:
-                    print("Failed: Invalid extra information string")
-                    return False
-
-                # Uploading image to BMC
                 print("Upgrade %s cpld" % fw_extra_str)
-                print("Uploading image to BMC...")
-                upload_file = self.upload_file_bmc(fw_path)
-                if not upload_file:
-                    print("Failed: Unable to upload image to BMC")
-                    return False
+                for x in range(1, 4):
+                    # Set fw_extra
+                    if x > 1:
+                        print("Retry to upgrade %s" % data[1])
 
-                filename_w_ext = os.path.basename(fw_path)
-                json_data = dict()
-                json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
-                json_data["password"] = bmc_pwd
-                json_data["device"] = "cpld"
-                json_data["reboot"] = "no"
-                json_data["type"] = fw_extra_str
+                    if fw_extra_str is None:
+                        print(
+                            "Failed: Invalid extra information string %s" % data[1])
+                        break
 
-                # Call BMC api to install cpld image
-                print("Installing...")
-                r = requests.post(self.fw_upgrade_url, json=json_data)
-                if r.status_code != 200 or 'success' not in r.json().get('result'):
-                    print("Failed: Invalid cpld image")
-                    return False
+                    # Uploading image to BMC
+                    print("Uploading image to BMC...")
+                    upload_file = self.upload_file_bmc(fw_path)
+                    if not upload_file:
+                        print("%s failed: Unable to upload image to BMC" %
+                              data[1])
+                        continue
 
-                print("%s cpld upgrade completed\n" % fw_extra_str)
-                upgrade_list.append(filename_w_ext.lower())
+                    filename_w_ext = os.path.basename(fw_path)
+                    json_data = dict()
+                    json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
+                    json_data["password"] = bmc_pwd
+                    json_data["device"] = "cpld"
+                    json_data["reboot"] = "no"
+                    json_data["type"] = fw_extra_str
+
+                    # Call BMC api to install cpld image
+                    print("Installing...")
+                    r = requests.post(self.fw_upgrade_url, json=json_data)
+                    if r.status_code != 200:
+                        print("%s failed: BMC API report error code %d" %
+                              (data[1], r.status_code))
+                        continue
+
+                    print("%s upgrade completed\n" % fw_extra_str)
+                    pass_count += 1
+                    upgrade_list.append(filename_w_ext.lower())
+                    break
 
             self.upgrade_logger(upgrade_list)
             print("Done")
-            return True
-
+            return pass_count == len(data_list)
         else:
             print("Failed: Invalid firmware type")
             return False
