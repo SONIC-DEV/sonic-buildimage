@@ -725,40 +725,61 @@ class FwMgrUtil(FwMgrUtilBase):
                                         No operation if the power cycle is not needed.
 
             Example:
-            self.firmware_refresh(["FPGA"], ["CPU_CPLD", "LC_CPLD"], "/tmp/fw/refresh.vme")
+            self.firmware_refresh(["FPGA"], ["BASE_CPLD", "LC_CPLD"],"/tmp/fw/refresh.vme")
             or
-            self.firmware_refresh("FPGA", None, None)
+            self.firmware_refresh(["FPGA"], None, None)
             or
-            self.firmware_refresh(None, ["FAN_CPLD", "LC1_CPLD", "BOARD_CPLD"], "/tmp/fw/refresh.vme")
+            self.firmware_refresh(None, ["FAN_CPLD", "LC1_CPLD", "BASE_CPLD"], "/tmp/fw/fan_refresh.vme:none:/tmp/fw/base_refresh.vme")
         """
         upgrade_list = []
         if not fpga_list and not cpld_list:
             return False
 
-        if cpld_list and ("COMBO_CPLD" in cpld_list or "BASE_CPLD" in cpld_list or "CPU_CPLD" in cpld_list):
-            fw_path = fw_extra
-            upload_file = self.upload_file_bmc(fw_path)
-            if not upload_file:
-                print("Failed: Unable to upload refresh image to BMC")
+        if cpld_list and ("BASE_CPLD" in cpld_list or "FAN_CPLD" in cpld_list):
+            fw_path_list = fw_extra.split(':')
+            command = "echo "
+            if len(fw_path_list) != len(cpld_list):
+                print("Failed: Invalid fw_extra")
                 return False
 
-            filename_w_ext = os.path.basename(fw_path)
-            upgrade_list.append(filename_w_ext.lower())
-            self.upgrade_logger(upgrade_list)
+            for idx in range(0, len(cpld_list)):
+                fw_path = fw_path_list[idx]
+                refresh_type = {
+                    "BASE_CPLD": "base",
+                    "FAN_CPLD": "fan"
+                }.get(cpld_list[idx], None)
+
+                if not refresh_type:
+                    continue
+                elif not self.upload_file_bmc(fw_path):
+                    print("Failed: Unable to upload refresh image to BMC")
+                    return False
+                else:
+                    filename_w_ext = os.path.basename(fw_path)
+                    upgrade_list.append(filename_w_ext.lower())
+                    self.upgrade_logger(upgrade_list)
+
+                    sub_command = "%s /home/root/%s > /tmp/cpld_refresh " % (
+                        refresh_type, filename_w_ext)
+                    command += sub_command
+
             json_data = dict()
-            json_data["data"] = "echo base /home/root/%s > /tmp/cpld_refresh" % filename_w_ext
+            json_data["data"] = command
             r = requests.post(self.bmc_raw_command_url, json=json_data)
             if r.status_code != 200:
-                print("Failed: Invalid refresh image")
+                print("Failed: %d Invalid refresh image" % r.status_code)
                 return False
 
-        if fpga_list:
+        elif fpga_list:
             json_data = dict()
             json_data["data"] = "echo fpga > /tmp/cpld_refresh"
             r = requests.post(self.bmc_raw_command_url, json=json_data)
             if r.status_code != 200:
-                print("Failed: Unable to load new FPGA")
+                print("Failed: %d Unable to load new FPGA" % r.status_code)
                 return False
+        else:
+            print("Failed: Invalid input")
+            return False
 
         return True
 
