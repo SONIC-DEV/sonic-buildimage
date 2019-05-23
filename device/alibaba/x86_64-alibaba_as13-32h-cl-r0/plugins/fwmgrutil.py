@@ -729,7 +729,7 @@ class FwMgrUtil(FwMgrUtilBase):
             or
             self.firmware_refresh(["FPGA"], None, None)
             or
-            self.firmware_refresh(None, ["FAN_CPLD", "LC1_CPLD", "BASE_CPLD"], "/tmp/fw/fan_refresh.vme:/tmp/fw/base_refresh.vme")
+            self.firmware_refresh(None, ["FAN_CPLD", "LC1_CPLD", "BASE_CPLD"], "/tmp/fw/fan_refresh.vme:none:/tmp/fw/base_refresh.vme")
         """
         upgrade_list = []
         if not fpga_list and not cpld_list:
@@ -767,7 +767,7 @@ class FwMgrUtil(FwMgrUtilBase):
             json_data["data"] = command
             r = requests.post(self.bmc_raw_command_url, json=json_data)
             if r.status_code != 200:
-                print("Failed: Invalid refresh image")
+                print("Failed: %d Invalid refresh image" % r.status_code)
                 return False
 
         elif fpga_list:
@@ -775,7 +775,7 @@ class FwMgrUtil(FwMgrUtilBase):
             json_data["data"] = "echo fpga > /tmp/cpld_refresh"
             r = requests.post(self.bmc_raw_command_url, json=json_data)
             if r.status_code != 200:
-                print("Failed: Unable to load new FPGA")
+                print("Failed: %d Unable to load new FPGA" % r.status_code)
                 return False
         else:
             print("Failed: Invalid input")
