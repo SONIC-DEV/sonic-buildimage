@@ -322,9 +322,14 @@ class FwMgrUtil(FwMgrUtilBase):
                 if fw_extra_str == "pingpong":
                     print("Switch to boot from %s" % flash)
                     self.set_bmc_boot_flash(flash)
-                print("Rebooting BMC.....")
-                if not self.reboot_bmc():
-                    return False
+                    print("Rebooting BMC.....")
+                    if not self.reboot_bmc():
+                        return False
+                else:
+                    print("Rebooting BMC in old fashion.....")
+                    reboot_dict = {}
+                    reboot_dict["reboot"] = "yes"
+                    r = requests.post(self.bmc_info_url, json=reboot_dict)
                 print("Done")
             else:
                 print("Failed: Unable to install BMC image")
