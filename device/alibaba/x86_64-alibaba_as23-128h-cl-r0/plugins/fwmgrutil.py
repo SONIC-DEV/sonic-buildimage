@@ -669,28 +669,26 @@ class FwMgrUtil(FwMgrUtilBase):
                             "Failed: Invalid extra information string %s" % data[1])
                         break
 
-                    # Uploading image to BMC
-                    print("Uploading image to BMC...")
-                    upload_file = self.upload_file_bmc(fw_path)
-                    if not upload_file:
-                        print("%s failed: Unable to upload image to BMC" %
-                              data[1])
-                        continue
-
                     filename_w_ext = os.path.basename(fw_path)
-                    json_data = dict()
-                    json_data["image_path"] = "root@127.0.0.1:/home/root/%s" % filename_w_ext
-                    json_data["password"] = bmc_pwd
-                    json_data["device"] = "cpld"
-                    json_data["reboot"] = "no"
-                    json_data["type"] = fw_extra_str
-
-                    # Call BMC api to install cpld image
+                    # Install cpld image via ispvm tool
                     print("Installing...")
-                    r = requests.post(self.fw_upgrade_url, json=json_data)
-                    if r.status_code != 200:
-                        print("%s failed: BMC API report error code %d" %
-                              (data[1], r.status_code))
+                    command = 'ispvm %s' % fw_path
+                    if fw_extra_str in ["top_lc", "bottom_lc"]:
+                        option = 1 if fw_extra_str == "top_lc" else 2
+                        command = "ispvm -c %d %s" % (option,
+                                                       os.path.abspath(fw_path))
+                    print("Running command : %s" % command)
+                    process = subprocess.Popen(
+                        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                    while True:
+                        output = process.stdout.readline()
+                        if output == '' and process.poll() is not None:
+                            break
+
+                    rc = process.returncode
+                    if rc != 0:
+                        print("Failed: Unable to install CPLD")
                         continue
 
                     print("%s upgrade completed\n" % fw_extra_str)
@@ -720,11 +718,13 @@ class FwMgrUtil(FwMgrUtilBase):
                                         No operation if the power cycle is not needed.
 
             Example:
-            self.firmware_refresh(["FPGA"], ["BASE_CPLD", "LC_CPLD"],"/tmp/fw/refresh.vme")
+            self.firmware_refresh(
+                ["FPGA"], ["BASE_CPLD", "LC_CPLD"],"/tmp/fw/refresh.vme")
             or
             self.firmware_refresh(["FPGA"], None, None)
             or
-            self.firmware_refresh(None, ["FAN_CPLD", "LC1_CPLD", "BASE_CPLD"], "/tmp/fw/fan_refresh.vme:none:/tmp/fw/base_refresh.vme")
+            self.firmware_refresh(None, ["FAN_CPLD", "LC1_CPLD", "BASE_CPLD"],
+                                  "/tmp/fw/fan_refresh.vme:none:/tmp/fw/base_refresh.vme")
         """
         upgrade_list = []
         if not fpga_list and not cpld_list:
@@ -771,6 +771,13 @@ class FwMgrUtil(FwMgrUtilBase):
             r = requests.post(self.bmc_raw_command_url, json=json_data)
             if r.status_code != 200:
                 print("Failed: %d Unable to load new FPGA" % r.status_code)
+                return False
+        elif cpld_list:
+            json_data = dict()
+            json_data["data"] = "echo cpu_cpld > /tmp/cpld_refresh"
+            r = requests.post(self.bmc_raw_command_url, json=json_data)
+            if r.status_code != 200:
+                print("Failed: %d Unable to load new CPLD" % r.status_code)
                 return False
         else:
             print("Failed: Invalid input")
