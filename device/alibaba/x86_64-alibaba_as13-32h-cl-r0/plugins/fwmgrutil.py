@@ -11,6 +11,7 @@ import base64
 import time
 import json
 import logging
+import ast
 from datetime import datetime
 
 try:
@@ -513,7 +514,7 @@ class FwMgrUtil(FwMgrUtilBase):
             Get last firmware upgrade information, inlcudes:
             1) FwType: cpld/fpga/bios/bmc(passed by method 'firmware_upgrade'), string
             2) FwPath: path and file name of firmware(passed by method 'firmware_upgrade'), string
-            3) FwExtra: designated string, econdings of this string is determined by vendor(passed by method 'firmware_upgrade')
+            3) FwExtra: designated string, econdings of this string is determined by vendor(passed by method 'firmware_program')
             4) Result: indicates whether the upgrade action is performed and success/failure status if performed. Values should be one of: "DONE"/"FAILED"/"NOT_PERFORMED".
             list of object:
             [
@@ -528,78 +529,29 @@ class FwMgrUtil(FwMgrUtilBase):
                     "FwPath": "fan_cpld.vme"
                     "FwExtra": "FAN_CPLD"
                     "Result": "FAILED"
-                },
-                {
-                    "FwType": "cpld",
-                    "FwPath": "refresh_cpld.vme"
-                    "FwExtra": "REFRESH_CPLD"
-                    "Result": "DONE"
                 }
             ]
         """
         last_update_list = []
-        local_log = []
 
         if os.path.exists(self.fw_upgrade_logger_path):
             with open(self.fw_upgrade_logger_path, 'r') as file:
-                data = file.read()
+                lines = file.read().splitlines()
 
-        local_log = json.loads(data)
-        upgrade_info_req = requests.get(self.fw_upgrade_url)
-        if upgrade_info_req.status_code == 200 and 'success' in upgrade_info_req.json().get('result'):
-            upgrade_info_json = upgrade_info_req.json()
-
-            for info_json_key in upgrade_info_json.keys():
-                if info_json_key == "result" or upgrade_info_json[info_json_key] == "None":
-                    continue
-
-                for x in range(0, len(upgrade_info_json[info_json_key])):
-                    update_dict = dict()
-                    index = x if info_json_key == "CPLD upgrade log" else -1
-                    raw_data = upgrade_info_json[info_json_key][index]
-                    raw_data_list = raw_data.split(",")
-                    fw_path = raw_data_list[1].split("firmware:")[1].strip()
-                    fw_extra_raw = raw_data_list[0].split(":")[0].strip()
-                    fw_result_raw = raw_data_list[0].split(":")[1].strip()
-                    raw_datetime = raw_data_list[2].split("time:")[1].strip()
-                    reformat_datetime = raw_datetime.replace("CST", "UTC")
-                    fw_extra_time = datetime.strptime(
-                        reformat_datetime, '%a %b %d %H:%M:%S %Z %Y')
-                    fw_extra_str = {
-                        "top_lc": "TOP_LC_CPLD",
-                        "bot_lc": "BOT_LC_CPLD",
-                        "fan": "FAN_CPLD",
-                        "cpu": "CPU_CPLD",
-                        "base": "BASE_CPLD",
-                        "combo": "COMBO_CPLD",
-                        "switch": "SW_CPLD",
-                        "enable": "REFRESH_CPLD",
-                    }.get(fw_extra_raw, fw_extra_raw)
-                    fw_result = "DONE" if fw_result_raw == "success" else fw_result_raw.upper()
-                    fw_result = "FAILED" if "FAILED" in fw_result else fw_result
-                    fw_result = "NOT_PERFORMED" if fw_result != "DONE" and fw_result != "FAILED" else fw_result
-                    update_dict["FwType"] = info_json_key.split(" ")[0].lower()
-                    update_dict["FwPath"] = fw_path
-                    update_dict["FwExtra"] = fw_extra_str
-                    update_dict["Result"] = fw_result
-                    update_dict["FwTime"] = fw_extra_time
-                    last_update_list.append(update_dict)
-                    if info_json_key != "CPLD upgrade log":
-                        break
-
-        last_update_list = sorted(last_update_list, key=lambda i: i['FwTime'])
-        map(lambda d: d.pop('FwTime', None), last_update_list)
-        if len(last_update_list) >= len(local_log) and len(last_update_list) != 0:
-            if str(last_update_list[-1].get('FwType')).lower() != 'cpld' or len(local_log) <= 1:
-                last_update_list = [last_update_list[-1]]
-            else:
-                remote_list = last_update_list[-len(local_log):]
-                remote_list_value = [d['FwPath'].lower()
-                                     for d in remote_list if 'FwPath' in d]
-                last_update_list = remote_list if remote_list_value == local_log else [
-                    last_update_list[-1]]
-        elif len(last_update_list) != 0:
-            last_update_list = [last_update_list[-1]]
+            upgrade_txt = [i for i in reversed(
+                lines) if "last_upgrade_result" in i]
+            if len(upgrade_txt) > 0:
+                last_upgrade_txt = upgrade_txt[0].split(
+                    "last_upgrade_result : ")
+                last_upgrade_list = ast.literal_eval(last_upgrade_txt[1])
+                for x in range(0, len(last_upgrade_list[1].split(":"))):
+                    upgrade_dict = {}
+                    upgrade_dict["FwType"] = last_upgrade_list[0].lower()
+                    upgrade_dict["FwPath"] = last_upgrade_list[1].split(":")[x]
+                    upgrade_dict["FwExtra"] = last_upgrade_list[2].split(":")[
+                        x] if last_upgrade_list[2] else "None"
+                    upgrade_dict["Result"] = last_upgrade_list[3].split(":")[x]
+                    last_update_list.append(upgrade_dict)
 
         return last_update_list
 
