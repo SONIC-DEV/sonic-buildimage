@@ -10,6 +10,7 @@ import pexpect
 import base64
 import time
 import json
+import logging
 from datetime import datetime
 
 try:
@@ -29,7 +30,7 @@ class FwMgrUtil(FwMgrUtilBase):
         self.bmc_raw_command_url = "http://240.1.1.1:8080/api/sys/raw"
         self.fw_upgrade_url = "http://240.1.1.1:8080/api/sys/upgrade"
         self.onie_config_file = "/host/machine.conf"
-        self.fw_upgrade_logger_path = "/usr/local/etc/last_fw_upgrade_logger"
+        self.fw_upgrade_logger_path = "/var/log/fw_upgrade.log"
         self.cpldb_version_path = "/sys/devices/platform/%s.cpldb/getreg" % self.platform_name
         self.fpga_version_path = "/sys/devices/platform/%s.switchboard/FPGA/getreg" % self.platform_name
         self.switchboard_cpld1_path = "/sys/devices/platform/%s.switchboard/CPLD1/getreg" % self.platform_name
@@ -71,6 +72,24 @@ class FwMgrUtil(FwMgrUtilBase):
             return rc
         os.system('modprobe switchboard_fpga')
         return 0
+
+    def __update_fw_upgrade_logger(self, header, message):
+        if not os.path.isfile(self.fw_upgrade_logger_path):
+            cmd = "sudo touch %s && sudo chmod +x %s" % (
+                self.fw_upgrade_logger_path, self.fw_upgrade_logger_path)
+            subprocess.Popen(
+                cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        logging.basicConfig(filename=self.fw_upgrade_logger_path,
+                            filemode='a',
+                            format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                            datefmt='%H:%M:%S',
+                            level=logging.INFO)
+
+        log_message = "%s : %s" % (header, message)
+        if header != "last_upgrade_result":
+            print(log_message)
+        return logging.info(log_message)
 
     def get_bmc_pass(self):
         if os.path.exists(self.bmc_pwd_path):
@@ -487,7 +506,6 @@ class FwMgrUtil(FwMgrUtilBase):
             print("Failed: Invalid firmware type")
             return False
 
-        self.upgrade_logger(upgrade_list)
         return True
 
     def get_last_upgrade_result(self):
@@ -604,14 +622,24 @@ class FwMgrUtil(FwMgrUtilBase):
                 self.firmware_program("FPGA", "/fpga.bin")
         """
         fw_type = fw_type.lower()
-        upgrade_list = []
         bmc_pwd = self.get_bmc_pass()
         if not bmc_pwd and fw_type != "fpga":
-            print("Failed: BMC credential not found")
+            self.__update_fw_upgrade_logger(
+                "fw_upgrade", "fail, message=BMC credential not found")
             return False
 
         if fw_type == 'fpga':
-            print("FPGA Upgrade")
+            last_fw_upgrade = ["FPGA", fw_path, None, "FAILED"]
+            self.__update_fw_upgrade_logger(
+                "fpga_upgrade", "start FPGA upgrade")
+
+            if not os.path.isfile(fw_path):
+                self.__update_fw_upgrade_logger(
+                    "fpga_upgrade", "fail, message=FPGA image not found %s" % fw_path)
+                self.__update_fw_upgrade_logger(
+                    "last_upgrade_result", str(last_fw_upgrade))
+                return False
+
             command = 'fpga_prog ' + fw_path
             print("Running command: %s" % command)
             process = subprocess.Popen(
@@ -621,12 +649,25 @@ class FwMgrUtil(FwMgrUtilBase):
                 output = process.stdout.readline()
                 if output == '' and process.poll() is not None:
                     break
-                if output:
-                    print(output.strip())
+
+            rc = process.returncode
+            if rc != 0:
+                self.__update_fw_upgrade_logger(
+                    "fw_upgrade", "fail, message=Unable to install FPGA")
+                self.__update_fw_upgrade_logger(
+                    "last_upgrade_result", str(last_fw_upgrade))
+                return False
+
+            self.__update_fw_upgrade_logger("fpga_upgrade", "done")
+            last_fw_upgrade[3] = "DONE"
+            self.__update_fw_upgrade_logger(
+                "last_upgrade_result", str(last_fw_upgrade))
             return True
 
         elif 'cpld' in fw_type:
-            print("CPLD Upgrade")
+            self.__update_fw_upgrade_logger(
+                "cpld_upgrade", "start CPLD upgrade")
+
             # Check input
             fw_extra_str = str(fw_extra).upper()
             if ":" in fw_path and ":" in fw_extra_str:
@@ -637,11 +678,12 @@ class FwMgrUtil(FwMgrUtilBase):
                 fw_extra_str_list = [fw_extra_str]
 
             if len(fw_path_list) != len(fw_extra_str_list):
-                print("Failed: Invalid input")
+                self.__update_fw_upgrade_logger(
+                    "cpld_upgrade", "fail, message=Invalid input")
                 return False
 
+            cpld_result_list = []
             data_list = list(zip(fw_path_list, fw_extra_str_list))
-            pass_count = 0
             for data in data_list:
                 fw_path = data[0]
                 fw_extra_str = data[1]
@@ -658,25 +700,31 @@ class FwMgrUtil(FwMgrUtilBase):
                     "SW_CPLD2": "switch"
                 }.get(fw_extra_str, None)
 
-                print("Upgrade %s cpld" % fw_extra_str)
+                self.__update_fw_upgrade_logger(
+                    "cpld_upgrade", "start %s upgrade" % data[1])
+                upgrade_result = "FAILED"
                 for x in range(1, 4):
                     # Set fw_extra
                     if x > 1:
-                        print("Retry to upgrade %s" % data[1])
+                        self.__update_fw_upgrade_logger(
+                            "cpld_upgrade", "fail, message=Retry to upgrade %s" % data[1])
 
-                    if fw_extra_str is None:
-                        print(
-                            "Failed: Invalid extra information string %s" % data[1])
+                    elif fw_extra_str is None:
+                        self.__update_fw_upgrade_logger(
+                            "cpld_upgrade", "fail, message=Invalid extra information string %s" % data[1])
+                        break
+                    elif not os.path.isfile(os.path.abspath(fw_path)):
+                        self.__update_fw_upgrade_logger(
+                            "cpld_upgrade", "fail, message=CPLD image not found %s" % fw_path)
                         break
 
-                    filename_w_ext = os.path.basename(fw_path)
                     # Install cpld image via ispvm tool
                     print("Installing...")
                     command = 'ispvm %s' % fw_path
                     if fw_extra_str in ["top_lc", "bottom_lc"]:
                         option = 1 if fw_extra_str == "top_lc" else 2
                         command = "ispvm -c %d %s" % (option,
-                                                       os.path.abspath(fw_path))
+                                                      os.path.abspath(fw_path))
                     print("Running command : %s" % command)
                     process = subprocess.Popen(
                         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -688,22 +736,25 @@ class FwMgrUtil(FwMgrUtilBase):
 
                     rc = process.returncode
                     if rc != 0:
-                        print("Failed: Unable to install CPLD")
+                        self.__update_fw_upgrade_logger(
+                            "cpld_upgrade", "fail, message=Unable to install CPLD")
                         continue
 
-                    print("%s upgrade completed\n" % fw_extra_str)
-                    pass_count += 1
-                    upgrade_list.append(filename_w_ext.lower())
+                    upgrade_result = "DONE"
+                    self.__update_fw_upgrade_logger("cpld_upgrade", "done")
                     break
+                cpld_result_list.append(upgrade_result)
 
-            self.upgrade_logger(upgrade_list)
-            print("Done")
-            return pass_count == len(data_list)
+            last_fw_upgrade = ["CPLD", ":".join(
+                fw_path_list), ":".join(fw_extra_str_list), ":".join(cpld_result_list)]
+            self.__update_fw_upgrade_logger(
+                "last_upgrade_result", str(last_fw_upgrade))
+            return "FAILED" not in cpld_result_list
         else:
-            print("Failed: Invalid firmware type")
+            self.__update_fw_upgrade_logger(
+                "fw_upgrade", "fail, message=Invalid firmware type")
             return False
 
-        self.upgrade_logger(upgrade_list)
         return True
 
     def firmware_refresh(self, fpga_list, cpld_list, fw_extra=None):
@@ -731,10 +782,13 @@ class FwMgrUtil(FwMgrUtilBase):
             return False
 
         if cpld_list and ("BASE_CPLD" in cpld_list or "FAN_CPLD" in cpld_list):
+            self.__update_fw_upgrade_logger(
+                "cpld_refresh", "start cpld refresh")
             fw_path_list = fw_extra.split(':')
             command = "echo "
             if len(fw_path_list) != len(cpld_list):
-                print("Failed: Invalid fw_extra")
+                self.__update_fw_upgrade_logger(
+                    "cpld_refresh", "fail, message=Invalid fw_extra")
                 return False
 
             for idx in range(0, len(cpld_list)):
@@ -747,12 +801,12 @@ class FwMgrUtil(FwMgrUtilBase):
                 if not refresh_type:
                     continue
                 elif not self.upload_file_bmc(fw_path):
-                    print("Failed: Unable to upload refresh image to BMC")
+                    self.__update_fw_upgrade_logger(
+                        "cpld_refresh", "fail, message=Unable to upload refresh image to BMC")
                     return False
                 else:
                     filename_w_ext = os.path.basename(fw_path)
                     upgrade_list.append(filename_w_ext.lower())
-                    self.upgrade_logger(upgrade_list)
 
                     sub_command = "%s /home/root/%s > /tmp/cpld_refresh " % (
                         refresh_type, filename_w_ext)
@@ -762,25 +816,38 @@ class FwMgrUtil(FwMgrUtilBase):
             json_data["data"] = command
             r = requests.post(self.bmc_raw_command_url, json=json_data)
             if r.status_code != 200:
-                print("Failed: %d Invalid refresh image" % r.status_code)
+                self.__update_fw_upgrade_logger(
+                    "cpld_refresh", "fail, message=%d Invalid refresh image" % r.status_code)
                 return False
+            self.__update_fw_upgrade_logger("cpld_refresh", "done")
 
-        elif fpga_list:
-            json_data = dict()
-            json_data["data"] = "echo fpga > /tmp/cpld_refresh"
-            r = requests.post(self.bmc_raw_command_url, json=json_data)
-            if r.status_code != 200:
-                print("Failed: %d Unable to load new FPGA" % r.status_code)
-                return False
         elif cpld_list:
+            self.__update_fw_upgrade_logger(
+                "cpld_refresh", "start CPLD refresh")
             json_data = dict()
             json_data["data"] = "echo cpu_cpld > /tmp/cpld_refresh"
             r = requests.post(self.bmc_raw_command_url, json=json_data)
             if r.status_code != 200:
-                print("Failed: %d Unable to load new CPLD" % r.status_code)
+                self.__update_fw_upgrade_logger(
+                    "cpld_refresh", "fail, message=%d Unable to load new FPGA" % r.status_code)
                 return False
+            self.__update_fw_upgrade_logger("cpld_refresh", "done")
+
+        elif fpga_list:
+            self.__update_fw_upgrade_logger(
+                "fpga_refresh", "start FPGA refresh")
+            json_data = dict()
+            json_data["data"] = "echo fpga > /tmp/cpld_refresh"
+            r = requests.post(self.bmc_raw_command_url, json=json_data)
+            if r.status_code != 200:
+                self.__update_fw_upgrade_logger(
+                    "cpld_refresh", "fail, message=%d Unable to load new FPGA" % r.status_code)
+                return False
+            self.__update_fw_upgrade_logger("fpga_refresh", "done")
+
         else:
-            print("Failed: Invalid input")
+            self.__update_fw_upgrade_logger(
+                "fw_refresh", "fail, message=Invalid input")
             return False
 
         return True
