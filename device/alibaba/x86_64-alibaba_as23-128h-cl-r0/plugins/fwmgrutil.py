@@ -60,7 +60,7 @@ class FwMgrUtil(FwMgrUtilBase):
         logging.basicConfig(filename=self.fw_upgrade_logger_path,
                             filemode='a',
                             format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                            datefmt='%H:%M:%S',
+                            datefmt='%b %d %H:%M:%S',
                             level=logging.INFO)
 
         log_message = "%s : %s" % (header, message)
@@ -740,13 +740,15 @@ class FwMgrUtil(FwMgrUtilBase):
             self.firmware_refresh(None, ["FAN_CPLD", "LC1_CPLD", "BASE_CPLD"],
                                   "/tmp/fw/fan_refresh.vme:none:/tmp/fw/base_refresh.vme")
         """
-        upgrade_list = []
+
         if not fpga_list and not cpld_list:
             return False
 
-        if cpld_list and ("BASE_CPLD" in cpld_list or "FAN_CPLD" in cpld_list):
+        if type(cpld_list) is list and ("BASE_CPLD" in cpld_list or "FAN_CPLD" in cpld_list):
+            refresh_list = fpga_list + \
+                cpld_list if type(fpga_list) is list else cpld_list
             self.__update_fw_upgrade_logger(
-                "cpld_refresh", "start cpld refresh")
+                "fw_refresh", "start %s refresh" % ",".join(refresh_list))
             fw_path_list = fw_extra.split(':')
             command = "echo "
             if len(fw_path_list) != len(cpld_list):
@@ -769,7 +771,6 @@ class FwMgrUtil(FwMgrUtilBase):
                     return False
                 else:
                     filename_w_ext = os.path.basename(fw_path)
-                    upgrade_list.append(filename_w_ext.lower())
 
                     sub_command = "%s /home/root/%s > /tmp/cpld_refresh " % (
                         refresh_type, filename_w_ext)
@@ -782,23 +783,21 @@ class FwMgrUtil(FwMgrUtilBase):
                 self.__update_fw_upgrade_logger(
                     "cpld_refresh", "fail, message=%d Invalid refresh image" % r.status_code)
                 return False
-            self.__update_fw_upgrade_logger("cpld_refresh", "done")
-
-        elif cpld_list:
+        elif type(cpld_list) is list:
+            refresh_list = fpga_list + \
+                cpld_list if type(fpga_list) is list else cpld_list
             self.__update_fw_upgrade_logger(
-                "cpld_refresh", "start CPLD refresh")
+                "fw_refresh", "start %s refresh" % ",".join(refresh_list))
             json_data = dict()
             json_data["data"] = "echo cpu_cpld > /tmp/cpld_refresh"
             r = requests.post(self.bmc_raw_command_url, json=json_data)
             if r.status_code != 200:
                 self.__update_fw_upgrade_logger(
-                    "cpld_refresh", "fail, message=%d Unable to load new FPGA" % r.status_code)
+                    "cpld_refresh", "fail, message=%d Unable to load new CPLD" % r.status_code)
                 return False
-            self.__update_fw_upgrade_logger("cpld_refresh", "done")
-
-        elif fpga_list:
+        elif type(fpga_list) is list:
             self.__update_fw_upgrade_logger(
-                "fpga_refresh", "start FPGA refresh")
+                "fw_refresh", "start FPGA refresh")
             json_data = dict()
             json_data["data"] = "echo fpga > /tmp/cpld_refresh"
             r = requests.post(self.bmc_raw_command_url, json=json_data)
@@ -806,13 +805,12 @@ class FwMgrUtil(FwMgrUtilBase):
                 self.__update_fw_upgrade_logger(
                     "cpld_refresh", "fail, message=%d Unable to load new FPGA" % r.status_code)
                 return False
-            self.__update_fw_upgrade_logger("fpga_refresh", "done")
-
         else:
             self.__update_fw_upgrade_logger(
                 "fw_refresh", "fail, message=Invalid input")
             return False
 
+        self.__update_fw_upgrade_logger("fw_refresh", "done")
         return True
 
     def get_running_bmc(self):
