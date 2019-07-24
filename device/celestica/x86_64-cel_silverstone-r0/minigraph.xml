@@ -645,283 +645,163 @@
       <IPInterfaces>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP1</AttachTo>
+          <AttachTo>QSFPDD1</AttachTo>
           <Prefix>10.0.0.0/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP2</AttachTo>
+          <AttachTo>QSFPDD2</AttachTo>
           <Prefix>10.0.0.2/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP3</AttachTo>
+          <AttachTo>QSFPDD3</AttachTo>
           <Prefix>10.0.0.4/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP4</AttachTo>
+          <AttachTo>QSFPDD4</AttachTo>
           <Prefix>10.0.0.6/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP5</AttachTo>
+          <AttachTo>QSFPDD5</AttachTo>
           <Prefix>10.0.0.8/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP6</AttachTo>
+          <AttachTo>QSFPDD6</AttachTo>
           <Prefix>10.0.0.10/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP7</AttachTo>
+          <AttachTo>QSFPDD7</AttachTo>
           <Prefix>10.0.0.12/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP8</AttachTo>
+          <AttachTo>QSFPDD8</AttachTo>
           <Prefix>10.0.0.14/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP9</AttachTo>
+          <AttachTo>QSFPDD9</AttachTo>
           <Prefix>10.0.0.16/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP10</AttachTo>
+          <AttachTo>QSFPDD10</AttachTo>
           <Prefix>10.0.0.18/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP11</AttachTo>
+          <AttachTo>QSFPDD11</AttachTo>
           <Prefix>10.0.0.20/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP12</AttachTo>
+          <AttachTo>QSFPDD12</AttachTo>
           <Prefix>10.0.0.22/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP13</AttachTo>
+          <AttachTo>QSFPDD13</AttachTo>
           <Prefix>10.0.0.24/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP14</AttachTo>
+          <AttachTo>QSFPDD14</AttachTo>
           <Prefix>10.0.0.26/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP15</AttachTo>
+          <AttachTo>QSFPDD15</AttachTo>
           <Prefix>10.0.0.28/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP16</AttachTo>
+          <AttachTo>QSFPDD16</AttachTo>
           <Prefix>10.0.0.30/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP17</AttachTo>
+          <AttachTo>QSFPDD17</AttachTo>
           <Prefix>10.0.0.32/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP18</AttachTo>
+          <AttachTo>QSFPDD18</AttachTo>
           <Prefix>10.0.0.34/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP19</AttachTo>
+          <AttachTo>QSFPDD19</AttachTo>
           <Prefix>10.0.0.36/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP20</AttachTo>
+          <AttachTo>QSFPDD20</AttachTo>
           <Prefix>10.0.0.38/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP21</AttachTo>
+          <AttachTo>QSFPDD21</AttachTo>
           <Prefix>10.0.0.40/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP22</AttachTo>
+          <AttachTo>QSFPDD22</AttachTo>
           <Prefix>10.0.0.42/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP23</AttachTo>
+          <AttachTo>QSFPDD23</AttachTo>
           <Prefix>10.0.0.44/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP24</AttachTo>
+          <AttachTo>QSFPDD24</AttachTo>
           <Prefix>10.0.0.46/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP25</AttachTo>
+          <AttachTo>QSFPDD25</AttachTo>
           <Prefix>10.0.0.48/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP26</AttachTo>
+          <AttachTo>QSFPDD26</AttachTo>
           <Prefix>10.0.0.50/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP27</AttachTo>
+          <AttachTo>QSFPDD27</AttachTo>
           <Prefix>10.0.0.52/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP28</AttachTo>
+          <AttachTo>QSFPDD28</AttachTo>
           <Prefix>10.0.0.54/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP29</AttachTo>
+          <AttachTo>QSFPDD29</AttachTo>
           <Prefix>10.0.0.56/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP30</AttachTo>
+          <AttachTo>QSFPDD30</AttachTo>
           <Prefix>10.0.0.58/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP31</AttachTo>
+          <AttachTo>QSFPDD31</AttachTo>
           <Prefix>10.0.0.60/31</Prefix>
         </IPInterface>
         <IPInterface>
           <Name i:Name="true"/>
-          <AttachTo>SFP32</AttachTo>
+          <AttachTo>QSFPDD32</AttachTo>
           <Prefix>10.0.0.62/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP33</AttachTo>
-          <Prefix>10.0.0.64/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP34</AttachTo>
-          <Prefix>10.0.0.66/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP35</AttachTo>
-          <Prefix>10.0.0.68/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP36</AttachTo>
-          <Prefix>10.0.0.70/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP37</AttachTo>
-          <Prefix>10.0.0.72/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP38</AttachTo>
-          <Prefix>10.0.0.74/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP39</AttachTo>
-          <Prefix>10.0.0.76/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP40</AttachTo>
-          <Prefix>10.0.0.78/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP41</AttachTo>
-          <Prefix>10.0.0.80/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP42</AttachTo>
-          <Prefix>10.0.0.82/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP43</AttachTo>
-          <Prefix>10.0.0.84/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP44</AttachTo>
-          <Prefix>10.0.0.86/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP45</AttachTo>
-          <Prefix>10.0.0.88/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP46</AttachTo>
-          <Prefix>10.0.0.90/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP47</AttachTo>
-          <Prefix>10.0.0.92/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>SFP48</AttachTo>
-          <Prefix>10.0.0.94/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>QSFP1</AttachTo>
-          <Prefix>10.0.0.96/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>QSFP2</AttachTo>
-          <Prefix>10.0.0.98/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>QSFP3</AttachTo>
-          <Prefix>10.0.0.100/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>QSFP4</AttachTo>
-          <Prefix>10.0.0.102/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>QSFP5</AttachTo>
-          <Prefix>10.0.0.104/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>QSFP6</AttachTo>
-          <Prefix>10.0.0.106/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>QSFP7</AttachTo>
-          <Prefix>10.0.0.108/31</Prefix>
-        </IPInterface>
-        <IPInterface>
-          <Name i:Name="true"/>
-          <AttachTo>QSFP8</AttachTo>
-          <Prefix>10.0.0.110/31</Prefix>
         </IPInterface>
 
       </IPInterfaces>
