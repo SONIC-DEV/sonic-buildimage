@@ -268,7 +268,8 @@ class FwMgrUtil(FwMgrUtilBase):
             flash = fw_extra_str if fw_extra_str in [
                 "master", "slave", "both"] else "both"
             if fw_extra_str == "pingpong":
-                flash = "master" if current_bmc == "slave" else "slave"
+                #flash = "master" if current_bmc == "slave" else "slave"
+                flash = "slave"
             json_data["flash"] = flash
 
             # Install BMC
@@ -290,6 +291,7 @@ class FwMgrUtil(FwMgrUtilBase):
             r = requests.post(self.bmc_info_url, json=json_data)
             if r.status_code == 200 and 'success' in r.json().get('result'):
                 if fw_extra_str == "pingpong":
+                    flash = "master" if current_bmc == "slave" else "slave"
                     self.__update_fw_upgrade_logger(
                         "bmc_upgrade", "switch to boot from %s" % flash)
                     self.set_bmc_boot_flash(flash)
