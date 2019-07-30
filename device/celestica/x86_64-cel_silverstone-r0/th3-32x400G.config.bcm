@@ -13,8 +13,6 @@ pll_bypass=1
 init_all_modules=0
 
 
-port_init_cl72=1
-
 portmap_38=257:10
 portmap_118=258:10
 
