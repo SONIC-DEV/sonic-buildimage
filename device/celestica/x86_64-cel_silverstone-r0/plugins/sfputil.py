@@ -73,7 +73,6 @@ class SfpUtil(SfpUtilBase):
         SfpUtilBase.__init__(self)
 
     def get_presence(self, port_num):
-
         # Check for invalid port_num
         if port_num not in range(self.port_start, self.port_end + 1):
             return False
@@ -105,7 +104,7 @@ class SfpUtil(SfpUtilBase):
 
         try:
             port_name = self.get_port_name(port_num)
-            reg_file  = open("/".join([self.PORT_INFO_PATH,
+            reg_file = open("/".join([self.PORT_INFO_PATH,
                                       port_name, "qsfp_lpmode"]))
         except IOError as e:
             print "Error: unable to open file: %s" % str(e)
@@ -127,8 +126,8 @@ class SfpUtil(SfpUtilBase):
 
         try:
             port_name = self.get_port_name(port_num)
-            reg_file = open("/".join([self.PORT_INFO_PATH, 
-                                     port_name, "qsfp_lpmode"]), "r+")
+            reg_file = open("/".join([self.PORT_INFO_PATH,
+                                      port_name, "qsfp_lpmode"]), "r+")
         except IOError as e:
             print "Error: unable to open file: %s" % str(e)
             return False
@@ -148,8 +147,8 @@ class SfpUtil(SfpUtilBase):
 
         try:
             port_name = self.get_port_name(port_num)
-            reg_file = open("/".join([self.PORT_INFO_PATH, 
-                                     port_name, "qsfp_reset"]), "w")
+            reg_file = open("/".join([self.PORT_INFO_PATH,
+                                      port_name, "qsfp_reset"]), "w")
         except IOError as e:
             print "Error: unable to open file: %s" % str(e)
             return False
@@ -181,4 +180,3 @@ class SfpUtil(SfpUtilBase):
         TBD
         """
         return NotImplementedError
-
