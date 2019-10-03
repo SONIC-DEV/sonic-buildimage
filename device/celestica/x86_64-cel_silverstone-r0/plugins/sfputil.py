@@ -183,4 +183,4 @@ class SfpUtil(SfpUtilBase):
         """
         TBD
         """
-        return NotImplementedError
+        raise NotImplementedError
