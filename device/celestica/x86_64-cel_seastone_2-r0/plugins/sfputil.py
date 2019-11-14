@@ -178,5 +178,5 @@ class SfpUtil(SfpUtilBase):
         """
         TBD: When the feature request.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
