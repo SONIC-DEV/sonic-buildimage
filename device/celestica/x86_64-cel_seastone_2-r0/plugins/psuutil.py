@@ -14,7 +14,7 @@ class PsuUtil(PsuBase):
     """Platform-specific PSUutil class"""
 
     def __init__(self):
-        self.ipmi_sensor = "docker exec -ti pmon ipmitool sensor"
+        self.ipmi_sensor = "ipmitool sensor"
         PsuBase.__init__(self)
 
     def run_command(self, command):
