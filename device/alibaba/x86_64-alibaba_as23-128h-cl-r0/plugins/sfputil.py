@@ -70,6 +70,11 @@ class SfpUtil(SfpUtilBase):
                 x + self.EEPROM_OFFSET)
         SfpUtilBase.__init__(self)
 
+    def _do_write_file(self, file_handle, offset, value):
+        file_handle.seek(offset)
+        file_handle.write(hex(value))
+        file_handle.close()
+
     def get_presence(self, port_num):
 
         # Check for invalid port_num
@@ -203,3 +208,40 @@ class SfpUtil(SfpUtilBase):
                 return False
 
         return True
+
+    def reset_all(self):
+        result = True
+        port_sysfs_path = []
+        for port in range(self.port_start, self.port_end+1):
+            if port not in self.qsfp_ports:
+                continue
+
+            presence = self.get_presence(port)
+            if not presence:
+                continue
+
+            try:
+                port_name = self.get_port_name(port)
+                sysfs_path = "/".join([self.PORT_INFO_PATH,
+                                       port_name, "qsfp_reset"])
+                print(sysfs_path)
+                reg_file = open(sysfs_path, "w")
+                port_sysfs_path.append(sysfs_path)
+            except IOError as e:
+                result = False
+                continue
+
+            self._do_write_file(reg_file, 0, 0)
+
+        time.sleep(1)
+
+        for sysfs_path in port_sysfs_path:
+            try:
+                reg_file = open(sysfs_path, "w")
+            except IOError as e:
+                result = False
+                continue
+
+            self._do_write_file(reg_file, 0, 1)
+
+        return result
