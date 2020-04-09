@@ -102,9 +102,9 @@
 #define FAN_DIR_FAULT 0
 #define FAN_DIR_B2F 1
 #define FAN_DIR_F2B 2
-#define THERMAL_DIR_F2B_STR "R1241-F0001"
-#define THERMAL_DIR_B2F_STR "R1241-F0002"
-#define FAN_DIR_F2B_STR "R1241-F9001"
+#define THERMAL_DIR_F2B_STR "R1241-F9019-01"
+#define THERMAL_DIR_B2F_STR "Undefined"
+#define FAN_DIR_F2B_STR "R1241-FN019-013JW"
 #define FAN_DIR_B2F_STR "R1241-F9002"
 #define DELTA_PSU_DIR_F2B_STR "DPS-1100FB"
 #define DELTA_PSU_DIR_B2F_STR "DPS-1100AB"
@@ -140,7 +140,7 @@ static int calculate_fan_one_fail_pwm(int cur_temp, int last_temp);
 
 static int read_temp_sysfs(struct sensor_info_sysfs *sensor);
 static int read_temp_directly_sysfs(struct sensor_info_sysfs *sensor);
-
+static void get_direction_str(int direction, char *message);
 
 struct line_policy fishbone48_f2b_normal = {
     .temp_hyst = CRITICAL_TEMP_HYST,
@@ -631,6 +631,7 @@ static struct thermal_policy b2f_one_fail_policy = {
     .line = &fishbone48_b2f_onefail,
 };
 
+/* Global variables */
 static struct thermal_policy *policy = NULL;
 static int pid_using = 0;
 static int direction = FAN_DIR_INIT;
@@ -1211,7 +1212,7 @@ static int alarm_temp_update(int *alarm)
                         info->flag &= ~HIGH_MAX_BIT;
                         syslog(LOG_INFO, "%s is NORMAL, set fan normal speed", info->name);
                     }
-#ifdef DEBU
+#ifdef DEBUG
                     syslog(LOG_DEBUG, "[xuth] Major max bit: %d, recovery count: %d", *alarm & HIGH_MAX_BIT ? 1 : 0, info->recovery_count);
 #endif
                 }
@@ -1961,6 +1962,17 @@ char* find_sub_string(char *src, const char *sub, int src_len)
     return NULL;
 }
 
+/*
+ * Determine the system's thermal direction from the fan EEPROMs.
+ * If the fans are not all in the same direction, thermal direction will
+ * determine by the large majority. If the total number of fan directions
+ * are even, assume F2B.
+ *
+ * This also updates fans status and info in global variable fantray_info[].
+ *
+ * @param direction System thermal direction.
+ * @return fan direction one of FAN_DIR_F2B or FAN_DIR_B2F.
+ */
 static int get_fan_direction(int direction)
 {
     struct fantray_info_stu_sysfs *fantray;
@@ -1972,6 +1984,9 @@ static int get_fan_direction(int direction)
     int i = 0;
     char *pn;
     int ret;
+    char direction_str[8];
+
+    get_direction_str(direction, direction_str);
 
     for (; i < TOTAL_FANS + TOTAL_PSUS; i++)
     {
@@ -2007,9 +2022,9 @@ static int get_fan_direction(int direction)
                 }
                 fantray->direction = FAN_DIR_F2B;
                 if (direction != fantray->direction)
-                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is F2B, system direction is B2F", fantray->name);
+                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is F2B, system direction is %s", fantray->name, direction_str);
                 else
-                    syslog(LOG_WARNING, "%s airflow direction match, direction is F2B, system direction is F2B", fantray->name);
+                    syslog(LOG_WARNING, "%s airflow direction match, direction is F2B, system direction is %s", fantray->name, direction_str);
             } else if (find_sub_string(buffer, FAN_DIR_B2F_STR, sizeof(buffer))) {
                 r2f_fan_cnt++;
                 if (fantray->direction == FAN_DIR_FAULT) {
@@ -2021,9 +2036,9 @@ static int get_fan_direction(int direction)
                 }
                 fantray->direction = FAN_DIR_B2F;
                 if (direction != fantray->direction)
-                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is B2F, system direction is F2B", fantray->name);
+                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is B2F, system direction is %s", fantray->name, direction_str);
                 else
-                    syslog(LOG_WARNING, "%s airflow direction match, direction is B2F, system direction is B2F", fantray->name);
+                    syslog(LOG_WARNING, "%s airflow direction match, direction is B2F, system direction is %s", fantray->name, direction_str);
             } else {
                 fantray->direction = FAN_DIR_FAULT;
                 if (ret > 0) {
@@ -2044,9 +2059,9 @@ static int get_fan_direction(int direction)
                 }
                 fantray->direction = FAN_DIR_F2B;
                 if (direction != fantray->direction)
-                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is F2B, system direction is B2F", fantray->name);
+                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is F2B, system direction is %s", fantray->name, direction_str);
                 else
-                    syslog(LOG_WARNING, "%s airflow direction match, direction is F2B, system direction is F2B", fantray->name);
+                    syslog(LOG_WARNING, "%s airflow direction match, direction is F2B, system direction is %s", fantray->name, direction_str);
             } else if (find_sub_string(buffer, DELTA_PSU_DIR_B2F_STR, sizeof(buffer))) {
                 if (fantray->direction == FAN_DIR_FAULT) {
                     syslog(LOG_WARNING, "%s eeprom is NORMAL", fantray->name);
@@ -2057,9 +2072,9 @@ static int get_fan_direction(int direction)
                 }
                 fantray->direction = FAN_DIR_B2F;
                 if (direction != fantray->direction)
-                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is B2F, system direction is F2B", fantray->name);
+                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is B2F, system direction is %s", fantray->name, direction_str);
                 else
-                    syslog(LOG_WARNING, "%s airflow direction match, direction is B2F, system direction is B2F", fantray->name);
+                    syslog(LOG_WARNING, "%s airflow direction match, direction is B2F, system direction is %s", fantray->name, direction_str);
             } else if (find_sub_string(buffer, ACBEL_PSU_DIR_F2B_STR, sizeof(buffer))) {
                 if (fantray->direction == FAN_DIR_FAULT) {
                     syslog(LOG_WARNING, "%s eeprom is NORMAL", fantray->name);
@@ -2070,9 +2085,9 @@ static int get_fan_direction(int direction)
                 }
                 fantray->direction = FAN_DIR_F2B;
                 if (direction != fantray->direction)
-                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is F2B, system direction is B2F", fantray->name);
+                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is F2B, system direction is %s", fantray->name, direction_str);
                 else
-                    syslog(LOG_WARNING, "%s airflow direction match, direction is F2B, system direction is F2B", fantray->name);
+                    syslog(LOG_WARNING, "%s airflow direction match, direction is F2B, system direction is %s", fantray->name, direction_str);
             } else if (find_sub_string(buffer, ACBEL_PSU_DIR_B2F_STR, sizeof(buffer))) {
                 if (fantray->direction == FAN_DIR_FAULT) {
                     syslog(LOG_WARNING, "%s eeprom is NORMAL", fantray->name);
@@ -2083,9 +2098,9 @@ static int get_fan_direction(int direction)
                 }
                 fantray->direction = FAN_DIR_B2F;
                 if (direction != fantray->direction)
-                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is B2F, system direction is F2B", fantray->name);
+                    syslog(LOG_ERR, "%s airflow direction mismatch, direction is B2F, system direction is %s", fantray->name, direction_str);
                 else
-                    syslog(LOG_WARNING, "%s airflow direction match, direction is B2F, system direction is B2F", fantray->name);
+                    syslog(LOG_WARNING, "%s airflow direction match, direction is B2F, system direction is %s", fantray->name, direction_str);
             } else {
                 fantray->direction = FAN_DIR_FAULT;
                 if (ret > 0) {
@@ -2106,6 +2121,13 @@ static int get_fan_direction(int direction)
     }
 }
 
+/*
+ * Get system thermal direction from TLV EEPROM.
+ * If falis to read thermal direction, then set the fan speed to maximum.
+ *
+ * @return the systen thermal direction FAN_DIR_F2B or FAN_DIR_B2F or less than
+ * zero if cannot determine the system thermal direction.
+ */
 int get_thermal_direction(void)
 {
     char buffer[128];
@@ -2114,12 +2136,31 @@ int get_thermal_direction(void)
     memset(command, 0, sizeof(command));
     sprintf(command, "/usr/bin/decode-syseeprom | grep 'Part Number' 2> /dev/null");
     fp = popen(command, "r");
-    int thermal_dir;
+    int thermal_dir = FAN_DIR_INIT;
     int fan, fan_speed;
 
+    /* We have 2 possible errors here
+     * 1: The eeprom canot be read
+     * 2: The PN does not match any expected cases
+     * Both will comes to the conclusion that we cannot know the system
+     * thermal direction here.
+     *
+     * We can do either let the fan be 100% and STOP PID control OR
+     * determine the fan speed from the fans and let running.
+     * But this might cause the program continue running with incorrect
+     * thermal parameter.
+     *
+     * I perfer to go with 100% and exit. The service can be started again,
+     * after the issue is fixed.
+     */
+
     if (!fp) {
-        syslog(LOG_ERR, "failed to get thermal direction");
-        syslog(LOG_WARNING, "thermal direction judged by fan direction");
+        syslog(LOG_ERR, "failed to read thermal direction from TLV EEPROM, FAN speed is set to 100%%");
+        fan_speed = FAN_MAX;
+        for (fan = 0; fan < TOTAL_FANS; fan++) {
+            write_fan_speed(fan, fan_speed);
+        }
+        write_psu_fan_speed(fan, fan_speed);
     } else {
         char temp;
         int len = 0;
@@ -2127,13 +2168,14 @@ int get_thermal_direction(void)
         fread(buffer, sizeof(char), sizeof(buffer), fp);
         pclose(fp);
         if (find_sub_string(buffer, THERMAL_DIR_F2B_STR, sizeof(buffer))) {
-            syslog(LOG_INFO, "system direction is F2B");
+            syslog(LOG_INFO, "system thermal direction is F2B");
             thermal_dir = FAN_DIR_F2B;
         } else if (find_sub_string(buffer, THERMAL_DIR_B2F_STR, sizeof(buffer))) {
-            syslog(LOG_INFO, "system direction is B2F");
+            syslog(LOG_INFO, "system thermal direction is B2F");
             thermal_dir = FAN_DIR_B2F;
         } else {
-            syslog(LOG_ERR, "system direction is unknown, FAN speed is set to 100%%");
+            syslog(LOG_ERR, "unrecognized system P/N in TLV EEPROM\n");
+            syslog(LOG_ERR, "system thermal direction is unknown, FAN speed is set to 100%%");
             fan_speed = FAN_MAX;
             for (fan = 0; fan < TOTAL_FANS; fan++) {
                 write_fan_speed(fan, fan_speed);
@@ -2141,16 +2183,27 @@ int get_thermal_direction(void)
             write_psu_fan_speed(fan, fan_speed);
         }
     }
+
     get_fan_direction(thermal_dir);
 
     return thermal_dir;
 }
 
-static void update_thermal_direction()
+static int update_thermal_direction()
 {
     struct fantray_info_stu_sysfs *fantray;
     int dir = get_thermal_direction();
+
+    /* Just pop out with error code, if error happen */
+    if (dir < 0)
+        return dir;
+
     if (direction != dir) {
+        /*
+         * This line only called once. Even the function name is update.
+         * If the thermal direction is not set, the whole program will
+         * runs into unexpected behaviors.
+         */
         direction = dir;
         if (direction == FAN_DIR_F2B) {
             syslog(LOG_INFO, "setting F2B thermal policy");
@@ -2161,6 +2214,7 @@ static void update_thermal_direction()
             policy = &b2f_normal_policy;
         }
     }
+    return 0;
 }
 
 static int pid_ini_parser(struct board_info_stu_sysfs *info, FILE *fp)
@@ -2263,8 +2317,16 @@ static int load_pid_config(void)
 static int policy_init(void)
 {
     int slope;
+    int ret;
     syslog(LOG_NOTICE, "Initializing FSC policy");
-    update_thermal_direction();
+
+    ret = update_thermal_direction();
+
+    if (ret < 0){
+        syslog(LOG_NOTICE, "Failed, Unknown thermal direction");
+        syslog(LOG_NOTICE, "Trying to exit...");
+        return ret;
+    }
 
     load_pid_config();
     if (pid_using == 0) {
@@ -2288,7 +2350,18 @@ static int policy_init(void)
     return 0;
 }
 
+static void get_direction_str(int direction, char *message)
+{
+    const char *airflow_strings[] = { "Unknown",
+                                      "Fault",
+                                      "B2F",
+                                      "F2B"};
+
+    strcpy( message, airflow_strings[ direction + 1] );
+}
+
 int main(int argc, char **argv) {
+    int ret;
     int critical_temp;
     int old_temp = -1;
     struct fantray_info_stu_sysfs *info;
@@ -2324,7 +2397,11 @@ int main(int argc, char **argv) {
     daemon(1, 0);
     syslog(LOG_DEBUG, "Starting up;  system should have %d fans.", TOTAL_FANS);
     fancpld_watchdog_enable();
-    policy_init();
+    ret = policy_init();
+    if (ret < 0){
+        syslog(LOG_NOTICE, "exit");
+        return ret;
+    }
     sleep(5);  /* Give the fans time to come up to speed */
     while (1) {
         fan_speed_temp = 0;
