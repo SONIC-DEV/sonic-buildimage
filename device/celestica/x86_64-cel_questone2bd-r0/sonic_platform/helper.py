@@ -195,6 +195,6 @@ class APIHelper():
             with open(sysfs_path, 'rb') as fd:
                 data = fd.read()
                 return data
-        except IOError:
-            raise IOError("Unable to open %s file !" % sysfs_path)
+        except:
+            pass
         return False

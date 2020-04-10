@@ -21,6 +21,8 @@ except ImportError as e:
 SENSORS_HWMON_PATH = "/sys/bus/i2c/devices/i2c-{0}/{0}-00{1}"
 SENSORS_MUX_HWMON_PATH = "/sys/bus/i2c/devices/i2c-{0}/i2c-{1}/{1}-00{2}"
 
+DEFAULT_VAL = 0.0
+
 class Thermal(ThermalBase):
     """Platform-specific Thermal class"""
 
@@ -47,7 +49,7 @@ class Thermal(ThermalBase):
         ]
 
         if self.THERMAL_LIST[self.thermal_index][1] == 'coretemp':
-            ## Specifi check coretemp condition, Because Hwmon path is not standard.
+            # Specifi check coretemp condition, Because Hwmon path is not standard.
             self.hwmon_path = "/sys/bus/platform/drivers/coretemp/coretemp.0/"
         else:
             if self.THERMAL_LIST[self.thermal_index][5]:
@@ -67,7 +69,7 @@ class Thermal(ThermalBase):
             self.hwmon_path, label, "name")
 
     def __search_dirpath_contain(self, directory, search_str, file_start):
-        ## Searching file_start from current directory inclunding sub-directory.
+        # Searching file_start from current directory inclunding sub-directory.
         self.dirpath = []
         for dirpath, dirnames, files in os.walk(directory):
             for name in files:
@@ -76,24 +78,16 @@ class Thermal(ThermalBase):
                     self.dirpath.append(dirpath)
         return self.dirpath
 
-    def __read_txt_file(self, file_path):
-        try:
-            with open(file_path, 'r') as fd:
-                data = fd.read()
-                return data.strip()
-        except IOError:
-            raise IOError("Unable to open %s file !" % file_path)
-
     def __get_temp(self, temp_file):
         for hwmon_path in self.dirpath:
             try:
                 temp_file_path = os.path.join(hwmon_path, temp_file)
-                raw_temp = self.__read_txt_file(temp_file_path)
+                raw_temp = self._api_helper.read_txt_file(temp_file_path)
                 temp = float(raw_temp)/1000
                 return "{:.3f}".format(temp)
             except:
                 continue
-        return False
+        return DEFAULT_VAL
 
     def __set_threshold(self, file_name, temperature):
         for hwmon_path in self.dirpath:
@@ -106,7 +100,6 @@ class Thermal(ThermalBase):
                 continue
         return False
 
-
     def get_temperature(self):
         """
         Retrieves current temperature reading from thermal
@@ -116,7 +109,6 @@ class Thermal(ThermalBase):
         """
         temp_file = "temp{}_input".format(self.ss_index)
         return self.__get_temp(temp_file)
-
 
     def get_high_threshold(self):
         """
@@ -128,7 +120,6 @@ class Thermal(ThermalBase):
         temp_file = "temp{}_max".format(self.ss_index)
         return self.__get_temp(temp_file)
 
-
     def set_high_threshold(self, temperature):
         """
         Sets the high threshold temperature of thermal
@@ -138,11 +129,11 @@ class Thermal(ThermalBase):
         Returns:
             A boolean, True if threshold is set successfully, False if not
         """
-    
+
         temp_file = "temp{}_max".format(self.ss_index)
         is_set = self.__set_threshold(temp_file, int(temperature*1000))
         return is_set
-   
+
     def get_low_threshold(self):
         """
         Retrieves the high threshold temperature of thermal
@@ -157,9 +148,8 @@ class Thermal(ThermalBase):
         for temp_file in temp_min_file:
             result = self.__get_temp(temp_file)
             if result is not False:
-                 break
+                break
         return result
-  
 
     def set_low_threshold(self, temperature):
         """
@@ -177,7 +167,7 @@ class Thermal(ThermalBase):
         for temp_file in temp_min_file:
             result = self.__set_threshold(temp_file, int(temperature*1000))
             if result is not False:
-                 break
+                break
         return result
 
     ##############################################################
@@ -240,7 +230,7 @@ class Thermal(ThermalBase):
                 if not os.path.isfile(fault_file_path):
                     return True
 
-                raw_txt = self.__read_txt_file(fault_file_path)
+                raw_txt = self._api_helper.read_txt_file(fault_file_path)
                 return int(raw_txt) == 0
             except:
                 continue
