@@ -5,3 +5,5 @@ tools/fanctrl/fanctrl.service lib/systemd/system
 questone2bd/scripts/get_fan_speed.sh usr/local/bin
 questone2bd/scripts/set_fan_speed.sh usr/local/bin
 questone2bd/cfg/pid_config_questone2bd.ini usr/local/etc
+questone2bd/modules/sonic_platform-1.0-py2-none-any.whl usr/share/sonic/device/x86_64-cel_questone2bd-r0
+services/platform_api/platform_api_mgnt.sh usr/local/bin

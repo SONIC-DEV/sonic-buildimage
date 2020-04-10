@@ -5,3 +5,5 @@ systemctl start platform-modules-questone2bd.service
 
 systemctl enable fanctrl.service
 systemctl start fanctrl.service
+
+/usr/local/bin/platform_api_mgnt.sh install
