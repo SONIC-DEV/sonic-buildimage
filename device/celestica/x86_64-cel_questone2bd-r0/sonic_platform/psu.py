@@ -28,17 +28,17 @@ PSU_INFO_MAPPING = {
         "name": "PSU-1",
         "status": 0,
         "present": 2,
-        "i2c_num": 75,
-        "pmbus_reg": "58",
-        "eeprom_reg": "50"
+        "i2c_num": 76,
+        "pmbus_reg": "59",
+        "eeprom_reg": "51",
     },
     1: {
         "name": "PSU-2",
         "status": 1,
         "present": 3,
-        "i2c_num": 76,
-        "pmbus_reg": "59",
-        "eeprom_reg": "51",
+        "i2c_num": 75,
+        "pmbus_reg": "58",
+        "eeprom_reg": "50"
     },
 }
 PSU_STATUS_REGISTER = "0xA160"
