@@ -40,12 +40,12 @@ PSU_FAN_MAX_RPM = 30000
 PSU_HWMON_PATH = "/sys/bus/i2c/devices/i2c-{0}/{0}-00{1}/hwmon"
 PSU_I2C_MAPPING = {
     0: {
-        "i2c_num": 75,
-        "pmbus_reg": "58",
-    },
-    1: {
         "i2c_num": 76,
         "pmbus_reg": "59",
+    },
+    1: {
+        "i2c_num": 75,
+        "pmbus_reg": "58",
     },
 }
 
