@@ -1,0 +1,15 @@
+setup.py
+../../../../device/celestica/x86_64-cel_silverstone-r0/sonic_platform/__init__.py
+../../../../device/celestica/x86_64-cel_silverstone-r0/sonic_platform/chassis.py
+../../../../device/celestica/x86_64-cel_silverstone-r0/sonic_platform/component.py
+../../../../device/celestica/x86_64-cel_silverstone-r0/sonic_platform/eeprom.py
+../../../../device/celestica/x86_64-cel_silverstone-r0/sonic_platform/fan.py
+../../../../device/celestica/x86_64-cel_silverstone-r0/sonic_platform/helper.py
+../../../../device/celestica/x86_64-cel_silverstone-r0/sonic_platform/platform.py
+../../../../device/celestica/x86_64-cel_silverstone-r0/sonic_platform/psu.py
+../../../../device/celestica/x86_64-cel_silverstone-r0/sonic_platform/sfp.py
+../../../../device/celestica/x86_64-cel_silverstone-r0/sonic_platform/thermal.py
+sonic_platform.egg-info/PKG-INFO
+sonic_platform.egg-info/SOURCES.txt
+sonic_platform.egg-info/dependency_links.txt
+sonic_platform.egg-info/top_level.txt
