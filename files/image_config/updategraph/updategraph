@@ -53,6 +53,9 @@ check_system_warm_boot
 copy_list="minigraph.xml snmp.yml acl.json config_db.json frr"
 if [ -f /tmp/pending_config_migration ]; then
     copy_config_files_and_directories $copy_list
+    PLATFORM=`sonic-cfggen -H -v DEVICE_METADATA.localhost.platform`
+    cp /usr/share/sonic/device/$PLATFORM/minigraph.xml /etc/sonic/minigraph.xml
+    sonic-cfggen -H -m /etc/sonic/minigraph.xml -j /etc/sonic/init_cfg.json --print-data > /etc/sonic/config_db.json
     if [ x"${WARM_BOOT}" == x"true" ]; then
         echo "Warm reboot detected..."
     elif [ "$enabled" = "true" ]; then
@@ -74,7 +77,9 @@ if [ -f /tmp/pending_config_initialization ]; then
     if [ "$enabled" != "true" ]; then
         PLATFORM=`sonic-cfggen -H -v DEVICE_METADATA.localhost.platform`
         PRESET=(`head -n 1 /usr/share/sonic/device/$PLATFORM/default_sku`)
-        sonic-cfggen -H -k ${PRESET[0]} --preset ${PRESET[1]} > /etc/sonic/config_db.json
+        #sonic-cfggen -H -k ${PRESET[0]} --preset ${PRESET[1]} > /etc/sonic/config_db.json
+        cp /usr/share/sonic/device/$PLATFORM/minigraph.xml /etc/sonic/minigraph.xml
+        sonic-cfggen -H -m /etc/sonic/minigraph.xml -j /etc/sonic/init_cfg.json --print-data > /etc/sonic/config_db.json
         redis-cli -n $CONFIG_DB_INDEX FLUSHDB
         sonic-cfggen -j /etc/sonic/config_db.json --write-to-db
         redis-cli -n $CONFIG_DB_INDEX SET "CONFIG_DB_INITIALIZED" "1"
