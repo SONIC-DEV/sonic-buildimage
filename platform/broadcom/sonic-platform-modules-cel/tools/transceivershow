@@ -1,0 +1,267 @@
+#! /usr/bin/python
+
+import os
+import re
+import click
+import swsssdk
+from natsort import natsorted
+from tabulate import tabulate
+
+
+# ========================== Common transceiver-utils logic ==========================
+
+
+PORT_STATUS_TABLE_PREFIX = "PORT_TABLE:"
+PORT_TRANSCEIVER_TABLE_PREFIX = "TRANSCEIVER_INFO|"
+PORT_TRANSCEIVER_DOM_PREFIX = "TRANSCEIVER_DOM_SENSOR|"
+PORT_LANES_STATUS = "lanes"
+
+PORT_SERIAL = "serialnum"
+PORT_VENDOR = "manufacturename"
+PORT_LEN = "cable_length"
+PORT_PN = "modelname"
+PORT_NBR = "nominal_bit_rate"
+PORT_REV = "hardwarerev"
+PORT_COM = "specification_compliance"
+
+PORT_TEMP = "temperature"
+PORT_VOLTAGE = "voltage"
+PORT_CUR = "tx{}bias"
+PORT_TX_PWR = "tx{}power"
+PORT_RX_PWR = "rx{}power"
+NULL_VAL = "N/A"
+
+
+def db_connect_configdb():
+    """
+    Connect to configdb
+    """
+    config_db = swsssdk.ConfigDBConnector()
+    if config_db is None:
+        return None
+    config_db.connect()
+    return config_db
+
+
+def get_frontpanel_port_list(config_db):
+    ports_dict = config_db.get_table('PORT')
+    front_panel_ports_list = []
+    for port in ports_dict.iterkeys():
+        front_panel_ports_list.append(port)
+    return front_panel_ports_list
+
+
+def db_connect_appl():
+    appl_db = swsssdk.SonicV2Connector(host='127.0.0.1')
+    if appl_db is None:
+        return None
+    appl_db.connect(appl_db.APPL_DB)
+    return appl_db
+
+
+def appl_db_keys_get(appl_db, front_panel_ports_list, port_name):
+    """
+    Get APPL_DB Keys
+    """
+    if port_name is None:
+        appl_db_keys = appl_db.keys(appl_db.APPL_DB, "PORT_TABLE:*")
+    elif port_name in front_panel_ports_list:
+        appl_db_keys = appl_db.keys(
+            appl_db.APPL_DB, "PORT_TABLE:%s" % port_name)
+    else:
+        return None
+    return appl_db_keys
+
+
+def appl_db_port_status_get(appl_db, port_name, status_type):
+    """
+    Get the port status
+    """
+    full_table_id = PORT_STATUS_TABLE_PREFIX + port_name
+    status = appl_db.get(appl_db.APPL_DB, full_table_id, status_type)
+    return NULL_VAL if status is None else status
+
+
+def db_connect_state():
+    """
+    Connect to REDIS STATE DB and get optics info
+    """
+    state_db = swsssdk.SonicV2Connector(host='127.0.0.1')
+    if state_db is None:
+        return None
+    state_db.connect(state_db.STATE_DB, False)   # Make one attempt only
+    return state_db
+
+
+def state_db_port_info_get(state_db, port_name, key):
+    """
+    Get optic info of port
+    """
+    full_table_id = PORT_TRANSCEIVER_TABLE_PREFIX + port_name
+    port_info = state_db.get(state_db.STATE_DB, full_table_id, key)
+    return NULL_VAL if port_info is None else port_info
+
+
+def state_db_port_dom_get(state_db, port_name, key):
+    """
+    Get dom info of port
+    """
+    full_table_id = PORT_TRANSCEIVER_DOM_PREFIX + port_name
+    port_dom = state_db.get(state_db.STATE_DB, full_table_id, key)
+    if port_dom and "-inf" in port_dom:
+        port_dom = NULL_VAL
+
+    return NULL_VAL if port_dom is None else port_dom
+
+def get_num_of_len(appl_db, port_name):
+    port_lens = appl_db_port_status_get(appl_db, port_name, PORT_LANES_STATUS)
+    return len(port_lens.split(","))
+
+# ========================== transceiver-status logic ==========================
+
+
+header_info = ['Port', 'Number of lanes', 'Vendor Name',
+               'Cable length[m]', 'Serial Number', 'Model Name', 'Nominal bit rate[100Mbs]', 'Rev']
+
+
+class TransceiverInfo(object):
+
+    def __init__(self, port_name):
+        """
+        Class constructor method
+        :param self: 
+        :param port_name: string of transceiver
+        :return: 
+        """
+        self.appl_db = db_connect_appl()
+        self.state_db = db_connect_state()
+        self.config_db = db_connect_configdb()
+        if self.appl_db is None:
+            return
+        if self.state_db is None:
+            return
+        if self.config_db is None:
+            return
+
+        self.front_panel_ports_list = get_frontpanel_port_list(self.config_db)
+        appl_db_keys = appl_db_keys_get(
+            self.appl_db, self.front_panel_ports_list, port_name)
+
+        if appl_db_keys is None:
+            return
+        self.display_transceiver_info(
+            appl_db_keys, self.front_panel_ports_list)
+
+    def display_transceiver_info(self, appl_db_keys, front_panel_ports_list):
+        """
+            Generate transceiver info output
+        """
+        sorted_appl_db_keys = natsorted(appl_db_keys)
+        table = []
+
+        for i in sorted_appl_db_keys:
+            key = re.split(':', i, maxsplit=1)[-1].strip()
+            if key in front_panel_ports_list:
+                table.append((key,
+                              get_num_of_len(self.appl_db, key),
+                              state_db_port_info_get(
+                                  self.state_db, key, PORT_VENDOR),
+                              state_db_port_info_get(
+                                  self.state_db, key, PORT_LEN),
+                              state_db_port_info_get(
+                                  self.state_db, key, PORT_SERIAL),
+                              state_db_port_info_get(
+                                  self.state_db, key, PORT_PN),
+                              state_db_port_info_get(
+                                  self.state_db, key, PORT_NBR),
+                              state_db_port_info_get(
+                                  self.state_db, key, PORT_REV)
+                              ))
+
+        print tabulate(table, header_info, tablefmt="simple", stralign='left')
+
+# ========================== transceiver  ==========================
+
+
+header_dom = ['Port', 'Lane number', 'Temp[C]', 'Voltage[V]',
+              'Current[mA]', 'Tx Power[dBm]', 'Rx Power[dBm]']
+
+
+class TransceiverDOM(object):
+
+    def __init__(self, port_name):
+        """
+        Class constructor method
+        :param self: 
+        :param port_name: string of transceiver
+        :return: 
+        """
+        self.appl_db = db_connect_appl()
+        self.state_db = db_connect_state()
+        self.config_db = db_connect_configdb()
+        if self.appl_db is None:
+            return
+        if self.state_db is None:
+            return
+        if self.config_db is None:
+            return
+
+        self.front_panel_ports_list = get_frontpanel_port_list(self.config_db)
+        appl_db_keys = appl_db_keys_get(
+            self.appl_db, self.front_panel_ports_list, port_name)
+
+        if appl_db_keys is None:
+            return
+        self.display_transceiver_dom(appl_db_keys, self.front_panel_ports_list)
+
+    def display_transceiver_dom(self, appl_db_keys, front_panel_ports_list):
+        """
+            Generate transceiver dom output
+        """
+        table = []
+        sorted_appl_db_keys = natsorted(appl_db_keys)
+
+        for i in sorted_appl_db_keys:
+            key = re.split(':', i, maxsplit=1)[-1].strip()
+            num_of_lane = get_num_of_len(self.appl_db, key)
+            port_temp = state_db_port_dom_get(self.state_db, key, PORT_TEMP)
+            port_voltage = state_db_port_dom_get(
+                self.state_db, key, PORT_VOLTAGE)
+            if key in front_panel_ports_list:
+                for lane in range(1, num_of_lane+1):
+                    port = key if lane == 1 else ""
+                    table.append((port, "Lane {}".format(lane),
+                                  port_temp,
+                                  port_voltage,
+                                  state_db_port_dom_get(
+                                      self.state_db, key, PORT_CUR.format(lane)),
+                                  state_db_port_dom_get(
+                                      self.state_db, key, PORT_TX_PWR.format(lane)),
+                                  state_db_port_dom_get(
+                                      self.state_db, key, PORT_RX_PWR.format(lane))
+                                  ))
+
+        print tabulate(table, header_dom, tablefmt="simple", stralign='left')
+
+
+@click.group()
+def cli():
+    """Command line utility for display transceivers information"""
+    pass
+
+# 'dom' subcommand
+@cli.command()
+@click.option('-p', '--port', metavar='<port_name>', help="Display Digital Optical Monitoring (DOM) data of <port_name> only")
+def dom(port):
+    TransceiverDOM(port)
+
+
+# 'info' subcommand
+@cli.command()
+@click.option('-p', '--port', metavar='<port_name>', help="Display tranceiver information of <port_name> only")
+def info(port):
+    TransceiverInfo(port)
+
+
+if __name__ == "__main__":
+    cli()
