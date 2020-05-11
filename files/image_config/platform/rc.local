@@ -88,6 +88,12 @@ update_mgmt_interface_macaddr() {
     sed -i "/eth0/ s/ATTR{address}==\"$old_mac\"/ATTR{address}==\"$new_mac\"/g" /etc/udev/rules.d/70-persistent-net.rules
 }
 
+diag_install() {
+    echo "Diag install start ..."
+    sleep 200
+    dpkg -i /home/Ali_Diag_V2.0.4.deb
+}
+
 boot_action() {
     #cleanos
     CLEAN_OS_FILE="/etc/sonic/cleanos"
@@ -102,8 +108,7 @@ boot_action() {
     #diag install
     if [ ! -d /usr/local/CPU_Diag ];then
         echo "Diag install"
-        sleep 200
-        dpkg -i /home/Ali_Diag_V2.0.4.deb
+        diag_install > /var/log/diagInstallLog &
     fi
 }
 
