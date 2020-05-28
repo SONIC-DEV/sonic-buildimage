@@ -20,7 +20,6 @@ start)
         modprobe ipmi_devintf
         modprobe mc24lc64t
         modprobe baseboard-lpc
-        modprobe i2c-ocores
         modprobe cls-switchboard
         modprobe xcvr-cls
         modprobe switch_cpld
@@ -33,6 +32,7 @@ start)
 
         # Clear syseeprom cache
         decode-syseeprom --init 2> /dev/null &
+        sleep 1
 
         # Attach switchboard CPLD i2c device
         echo switch_cpld 0x30 > /sys/bus/i2c/devices/i2c-4/new_device
