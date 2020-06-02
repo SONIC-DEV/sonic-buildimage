@@ -99,17 +99,26 @@ class FwMgrUtil(FwMgrUtilBase):
         return str(bmc_version)
 
     def upload_file_bmc(self, fw_path):
-        scp_command = 'sudo scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r %s root@240.1.1.1:/home/root/' % os.path.abspath(
-            fw_path)
-        child = pexpect.spawn(scp_command)
-        i = child.expect(["root@240.1.1.1's password:"], timeout=30)
-        bmc_pwd = self.get_bmc_pass()
-        if i == 0 and bmc_pwd:
-            child.sendline(bmc_pwd)
-            data = child.read()
-            print(data)
-            child.close
-            return os.path.isfile(fw_path)
+        scp_command = 'sudo scp -o StrictHostKeyChecking=no -o ' \
+                      'UserKnownHostsFile=/dev/null -r %s root@240.1.1.1:/home/root/' \
+                      % os.path.abspath(fw_path)
+        for n in range(0,3):
+            child = pexpect.spawn(scp_command, timeout=120)
+            expect_list = [pexpect.EOF, pexpect.TIMEOUT, "'s password:"]
+            i = child.expect(expect_list, timeout=120)
+            bmc_pwd = self.get_bmc_pass()
+            if i == 2 and bmc_pwd != None:
+                child.sendline(bmc_pwd)
+                data = child.read()
+                child.close()
+                return os.path.isfile(fw_path)
+            elif i == 0:
+                print('upload done')
+                return True
+            else:
+                print "Failed to scp %s to BMC, index %d, retry %d" % (fw_path, i, n)
+                continue
+        print "Failed to scp %s to BMC, index %d" % (fw_path, i)
         return False
 
     def get_cpld_version(self):
@@ -271,6 +280,17 @@ class FwMgrUtil(FwMgrUtilBase):
                 # flash = "master" if current_bmc == "slave" else "slave"
                 flash = "slave"
             json_data["flash"] = flash
+
+            # umount /data/mnt
+            umount_json_data = dict()
+            umount_json_data["data"] = "pkill rsyslogd; umount -f /mnt/data/"
+            r = requests.post(self.bmc_raw_command_url, json=umount_json_data)
+            if r.status_code != 200:
+                self.__update_fw_upgrade_logger(
+                    "bmc_upgrade", "fail, message=unable to umount /data/mnt")
+                self.__update_fw_upgrade_logger(
+                    "last_upgrade_result", str(last_fw_upgrade))
+                return False
 
             # Install BMC
             if flash == "both":
