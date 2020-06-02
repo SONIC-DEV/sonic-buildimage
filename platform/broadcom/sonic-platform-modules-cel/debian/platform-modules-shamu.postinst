@@ -1,0 +1,17 @@
+depmod -a
+
+# Enable bmc vlan_ip service
+systemctl enable bmc_vlan.service
+
+systemctl enable platform-modules-shamu.service
+systemctl start platform-modules-shamu.service
+
+/usr/local/bin/platform_api_mgnt.sh install
+
+# Enable platform-sync_bmc-timer
+# systemctl enable sync_bmc.timer
+# systemctl start sync_bmc.timer
+
+# Enable heartbeat timer
+systemctl enable bmc_wdt.service
+systemctl start bmc_wdt.service

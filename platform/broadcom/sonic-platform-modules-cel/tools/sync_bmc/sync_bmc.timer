@@ -1,0 +1,10 @@
+[Unit]
+Description=Timer send sensor data value to BMC.
+
+[Timer]
+OnUnitActiveSec=5s
+OnBootSec=5s
+AccuracySec=1us
+
+[Install]
+WantedBy=timers.target

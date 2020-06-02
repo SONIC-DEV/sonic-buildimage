@@ -1,0 +1,15 @@
+depmod -a
+
+# Enable bmc vlan_ip service
+systemctl enable bmc_vlan.service
+
+systemctl enable platform-modules-jaws.service
+systemctl start platform-modules-jaws.service
+
+# Enable platform-sync_bmc-timer
+# systemctl enable sync_bmc.timer
+# systemctl start sync_bmc.timer
+
+# Enable heartbeat timer
+systemctl enable bmc_wdt.service
+systemctl start bmc_wdt.service

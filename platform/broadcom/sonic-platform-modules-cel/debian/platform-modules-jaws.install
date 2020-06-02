@@ -1,0 +1,15 @@
+jaws/cfg/jaws-modules.conf etc/modules-load.d
+jaws/systemd/platform-modules-jaws.service lib/systemd/system
+tools/sync_bmc/bmc_vlan.service etc/systemd/system
+tools/sync_bmc/sync_bmc.service etc/systemd/system
+tools/sync_bmc/sync_bmc.timer etc/systemd/system
+tools/sync_bmc/bmc_vlan.sh /usr/local/etc/
+tools/sync_bmc/sync_bmc.py /usr/local/etc/
+tools/platformutil.py /usr/local/etc/
+tools/read_optic_temp.py /usr/local/etc/
+tools/bmcutil/bmcpwd /usr/local/etc/
+tools/bmcutil/bmcutil.py /usr/local/etc/
+tools/bmcutil/bmc-exec /usr/local/bin
+tools/bmc_wdt/bmc_wdt.service etc/systemd/system
+tools/bmc_wdt/bmc_wdt.py /usr/local/etc/
+tools/power_utils/power /usr/local/bin
