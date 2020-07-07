@@ -28,11 +28,11 @@ PSU_POWER = "power"
 # SKUs with unplugable PSUs:
 # 1. don't have psuX_status and should be treated as always present
 # 2. don't have voltage, current and power values
-hwsku_dict_with_unplugable_psu = ['ACS-MSN2010', 'ACS-MSN2100']
+platform_dict_with_unplugable_psu = ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2100-r0']
 
 # in most SKUs the file psuX_curr, psuX_volt and psuX_power contain current, voltage and power data respectively. 
 # but there are exceptions which will be handled by the following dictionary
-hwsku_dict_psu = {'ACS-MSN3700': 1, 'ACS-MSN3700C': 1, 'ACS-MSN3800': 1, 'Mellanox-SN3800-D112C8': 1, 'ACS-MSN4700': 1, 'ACS-MSN3420': 1, 'ACS-MSN4600C': 1}
+platform_dict_psu = {'x86_64-mlnx_msn3420-r0':1, 'x86_64-mlnx_msn3700-r0': 1, 'x86_64-mlnx_msn3700c-r0': 1, 'x86_64-mlnx_msn3800-r0': 1, 'x86_64-mlnx_msn4600c-r0':1, 'x86_64-mlnx_msn4700-r0': 1}
 psu_profile_list = [
     # default filename convention
     {
@@ -40,7 +40,7 @@ psu_profile_list = [
         PSU_VOLTAGE : "power/psu{}_volt",
         PSU_POWER : "power/psu{}_power"
     },
-    # for 3420, 3700, 3700c, 3800, 4700
+    # for 3420, 3700, 3700c, 3800, 4600c, 4700
     {
         PSU_CURRENT : "power/psu{}_curr",
         PSU_VOLTAGE : "power/psu{}_volt_out2",
@@ -50,7 +50,7 @@ psu_profile_list = [
 
 class Psu(PsuBase):
     """Platform-specific Psu class"""
-    def __init__(self, psu_index, sku):
+    def __init__(self, psu_index, platform):
         global psu_list
         PsuBase.__init__(self)
         # PSU is 1-based on Mellanox platform
@@ -60,13 +60,14 @@ class Psu(PsuBase):
         psu_oper_status = "thermal/psu{}_pwr_status".format(self.index)
         #psu_oper_status should always be present for all SKUs
         self.psu_oper_status = os.path.join(self.psu_path, psu_oper_status)
+        self._name = "PSU{}".format(psu_index + 1)
 
-        if sku in hwsku_dict_psu:
-            filemap = psu_profile_list[hwsku_dict_psu[sku]]
+        if platform in platform_dict_psu:
+            filemap = psu_profile_list[platform_dict_psu[platform]]
         else:
             filemap = psu_profile_list[0]
 
-        if sku in hwsku_dict_with_unplugable_psu:
+        if platform in platform_dict_with_unplugable_psu:
             self.always_presence = True
             self.psu_voltage = None
             self.psu_current = None
@@ -90,9 +91,20 @@ class Psu(PsuBase):
             psu_presence = os.path.join(self.psu_path, psu_presence)
             self.psu_presence = psu_presence
 
-        fan = Fan(psu_index, psu_index, True)
-        if fan.get_presence():
-            self._fan = fan
+        # unplugable PSU has no FAN
+        if platform not in platform_dict_with_unplugable_psu:
+            fan = Fan(False, psu_index, psu_index, True)
+            self._fan_list.append(fan)
+
+        self.psu_green_led_path = "led_psu_green"
+        self.psu_red_led_path = "led_psu_red"
+        self.psu_orange_led_path = "led_psu_orange"
+        self.psu_led_cap_path = "led_psu_capability"
+
+
+    def get_name(self):
+        return self._name
+
 
     def _read_generic_file(self, filename, len):
         """
@@ -100,8 +112,10 @@ class Psu(PsuBase):
         """
         result = 0
         try:
+            if not os.path.exists(filename):
+                return result
             with open(filename, 'r') as fileobj:
-                result = int(fileobj.read())
+                result = int(fileobj.read().strip())
         except Exception as e:
             logger.log_info("Fail to read file {} due to {}".format(filename, repr(e)))
         return result
@@ -169,3 +183,117 @@ class Psu(PsuBase):
             return float(power) / 1000000
         else:
             return None
+
+
+    def _get_led_capability(self):
+        cap_list = None
+        try:
+            with open(os.path.join(LED_PATH, self.psu_led_cap_path), 'r') as psu_led_cap:
+                    caps = psu_led_cap.read()
+                    cap_list = caps.split()
+        except (ValueError, IOError):
+            pass
+        
+        return cap_list
+
+
+    def set_status_led(self, color):
+        """
+        Sets the state of the PSU status LED
+
+        Args:
+            color: A string representing the color with which to set the
+                   PSU status LED
+
+        Returns:
+            bool: True if status LED state is set successfully, False if not
+
+        Notes:
+            Only one led for all PSUs.
+        """
+        led_cap_list = self._get_led_capability()
+        if led_cap_list is None:
+            return False
+
+        status = False
+        try:
+            if color == self.STATUS_LED_COLOR_GREEN:
+                with open(os.path.join(LED_PATH, self.psu_green_led_path), 'w') as psu_led:
+                    psu_led.write(LED_ON)
+                    status = True
+            elif color == self.STATUS_LED_COLOR_RED:
+                # Some fan don't support red led but support orange led, in this case we set led to orange
+                if self.STATUS_LED_COLOR_RED in led_cap_list:
+                    led_path = os.path.join(LED_PATH, self.psu_red_led_path)
+                elif self.STATUS_LED_COLOR_ORANGE in led_cap_list:
+                    led_path = os.path.join(LED_PATH, self.psu_orange_led_path)
+                else:
+                    return False
+                with open(led_path, 'w') as psu_led:
+                    psu_led.write(LED_ON)
+                    status = True
+            elif color == self.STATUS_LED_COLOR_OFF:
+                if self.STATUS_LED_COLOR_GREEN in led_cap_list:
+                    with open(os.path.join(LED_PATH, self.psu_green_led_path), 'w') as psu_led:
+                        psu_led.write(str(LED_OFF))
+                if self.STATUS_LED_COLOR_RED in led_cap_list:
+                    with open(os.path.join(LED_PATH, self.psu_red_led_path), 'w') as psu_led:
+                        psu_led.write(str(LED_OFF))
+                if self.STATUS_LED_COLOR_ORANGE in led_cap_list:
+                    with open(os.path.join(LED_PATH, self.psu_orange_led_path), 'w') as psu_led:
+                        psu_led.write(str(LED_OFF))
+
+                status = True
+            else:
+                status = False
+        except (ValueError, IOError):
+            status = False
+
+        return status
+
+
+    def get_status_led(self):
+        """
+        Gets the state of the PSU status LED
+
+        Returns:
+            A string, one of the predefined STATUS_LED_COLOR_* strings above
+        """
+        led_cap_list = self._get_led_capability()
+        if led_cap_list is None:
+            return self.STATUS_LED_COLOR_OFF
+
+        try:
+            with open(os.path.join(LED_PATH, self.psu_green_led_path), 'r') as psu_led:
+                if LED_OFF != psu_led.read().rstrip('\n'):
+                    return self.STATUS_LED_COLOR_GREEN
+            if self.STATUS_LED_COLOR_RED in led_cap_list:
+                with open(os.path.join(LED_PATH, self.psu_red_led_path), 'r') as psu_led:
+                    if LED_OFF != psu_led.read().rstrip('\n'):
+                        return self.STATUS_LED_COLOR_RED
+            if self.STATUS_LED_COLOR_ORANGE in led_cap_list:
+                with open(os.path.join(LED_PATH, self.psu_orange_led_path), 'r') as psu_led:
+                    if LED_OFF != psu_led.read().rstrip('\n'):
+                        return self.STATUS_LED_COLOR_RED
+        except (ValueError, IOError) as e:
+            raise RuntimeError("Failed to read led status for psu due to {}".format(repr(e)))
+
+        return self.STATUS_LED_COLOR_OFF
+
+
+    def get_power_available_status(self):
+        """
+        Gets the power available status
+
+        Returns:
+            True if power is present and power on. 
+            False and "absence of PSU" if power is not present.
+            False and "absence of power" if power is present but not power on.
+        """
+        if not self.get_presence():
+            return False, "absence of PSU"
+        elif not self.get_powergood_status():
+            return False, "absence of power"
+        else:
+            return True, ""
+

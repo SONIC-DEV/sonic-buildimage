@@ -16,6 +16,8 @@ See usage string for detail description for arguments.
 """
 
 from __future__ import print_function
+import sys
+sys.path.insert(0, "/usr/local/lib/python2.7/dist-packages")
 
 # monkey patch re.compile to do lazy regular expression compilation.
 # This is done to improve import time of jinja2, yaml, natsort modules, because they
@@ -43,6 +45,7 @@ from sonic_device_util import get_machine_info
 from sonic_device_util import get_platform_info
 from sonic_device_util import get_system_mac
 from sonic_device_util import get_npu_id_from_name
+from sonic_device_util import get_npu_device_id
 from config_samples import generate_sample_config
 from config_samples import get_available_config
 from swsssdk import SonicV2Connector, ConfigDBConnector, SonicDBConfig 
@@ -113,7 +116,17 @@ def pfx_filter(value):
     for key,val in value.items():
         if not isinstance(key, tuple):
             continue
-        table[key] = val
+        intf, ip_address = key
+        if '/' not in ip_address:
+            if is_ipv4(ip_address):
+                new_ip_address = "%s/32" % ip_address
+            elif is_ipv6(ip_address):
+                new_ip_address = "%s/128" % ip_address
+            else:
+                raise ValueError("'%s' is invalid ip address" % ip_address)
+            table[(intf, new_ip_address)] = val
+        else:
+            table[key] = val
     return table
 
 def ip_network(value):
@@ -304,7 +317,12 @@ def main():
             }}}
         # The ID needs to be passed to the SAI to identify the asic.
         if asic_name is not None:
-            hardware_data['DEVICE_METADATA']['localhost'].update(asic_id=asic_id)
+            device_id = get_npu_device_id(asic_id)
+            # if the device_id obtained is None, exit with error
+            if device_id is None:
+                print('Failed to get device ID for', asic_name, file=sys.stderr)
+                sys.exit(1)
+            hardware_data['DEVICE_METADATA']['localhost'].update(asic_id=device_id)
         deep_update(data, hardware_data)
 
     if args.template is not None:

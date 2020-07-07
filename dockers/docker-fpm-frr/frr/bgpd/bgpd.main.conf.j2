@@ -1,3 +1,4 @@
+{% from "common/functions.conf.j2" import get_ipv4_loopback_address, get_ipv6_loopback_address %}
 !
 ! template: bgpd/bgpd.main.conf.j2
 !
@@ -63,7 +64,12 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 !
 !
 {% if DEVICE_METADATA['localhost']['sub_role'] == 'FrontEnd' %}
-  redistribute connected route-map HIDE_INTERNAL
+  address-family ipv4
+    redistribute connected route-map HIDE_INTERNAL
+  exit-address-family
+  address-family ipv6
+    redistribute connected route-map HIDE_INTERNAL
+  exit-address-family
 {% endif %}
 !
 {% if constants.bgp.maximum_paths.enabled is defined and constants.bgp.maximum_paths.enabled %}

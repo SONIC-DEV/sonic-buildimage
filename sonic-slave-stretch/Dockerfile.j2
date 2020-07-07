@@ -295,7 +295,9 @@ RUN apt-get update && apt-get install -y \
         libnetfilter-conntrack-dev \
         libnftnl-dev \
 # For SAI3.7
+        protobuf-compiler \
         libprotobuf-dev \
+        xxd \
 # For DHCP Monitor tool
         libexplain-dev \
         libevent-dev
@@ -366,6 +368,9 @@ RUN pip install pexpect==4.6.0
 RUN pip install mockredispy==2.9.3
 RUN pip install pytest-runner==4.4
 RUN pip install setuptools==40.8.0
+
+# For sonic-swss-common testing
+RUN pip install Pympler==0.8
 
 # For mgmt-framework build
 RUN pip install mmh3

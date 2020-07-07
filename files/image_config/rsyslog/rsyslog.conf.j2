@@ -19,7 +19,7 @@ $ModLoad imklog   # provides kernel logging support
 
 # provides UDP syslog reception
 $ModLoad imudp
-$UDPServerAddress 127.0.0.1 # bind to localhost before udp server run
+$UDPServerAddress {{udp_server_ip}}  #bind to localhost before udp server run
 $UDPServerRun 514
 
 # provides TCP syslog reception
