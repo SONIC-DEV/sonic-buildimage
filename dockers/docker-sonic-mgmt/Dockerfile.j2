@@ -2,56 +2,69 @@ FROM ubuntu:16.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update
-RUN apt-get install -y \
-                openssh-server \
-                gcc \
-                vim \
-                make \
-                git \
-                sudo \
-                python \
-                python-dev \
-                python-cffi \
-                libffi-dev \
-                libssl-dev \
-                sshpass \
-                libxml2 \
-                libxslt1-dev \
-                python-setuptools \
-                build-essential \
-                curl \
-                cmake \
-                tcpdump \
-                python-dev \
-                python-scapy
+RUN apt-get update && apt-get install -y build-essential \
+                                         cmake \
+                                         curl \
+                                         default-jre \
+                                         gcc \
+                                         git \
+                                         inetutils-ping \
+                                         libffi-dev \
+                                         libssl-dev \
+                                         libxml2 \
+                                         libxslt1-dev \
+                                         make \
+                                         openssh-server \
+                                         psmisc \
+                                         python \
+                                         python-dev \
+                                         python-scapy \
+                                         python-setuptools \
+                                         rsyslog \
+                                         snmp \
+                                         sshpass \
+                                         sudo \
+                                         tcpdump \
+                                         telnet \
+                                         vim
 
-# For JNLP launcher
-RUN apt-get install -y default-jre
+RUN easy_install pip==20.1.1
 
-# For syslog test
-RUN apt-get install -y rsyslog psmisc
-
-# Remove cffi 1.5.2, will install 1.10.0 by pip later
-RUN apt-get purge -y python-cffi python-cffi-backend
-# Remove pycparser 2.14, will install >=2.17 by pip later
-RUN apt-get purge -y python-ply python-pycparser
-
-RUN easy_install pip
-
-RUN pip install ipaddr \
-                lxml \
-                netaddr \
-                natsort \
-                six \
-                pexpect \
-                pyasn1==0.1.9 \
-                pysnmp==4.2.5 \
-                jinja2==2.7.2 \
-                cffi==1.10.0 \
-                paramiko==2.1.2 \
-                passlib \
+RUN pip install cffi==1.10.0 \
+                "cryptography>=2.5" \
+                "future>=0.16.0" \
+                gitpython \
+                ipaddr \
                 ipython==5.4.1 \
+                ixnetwork-restpy==1.0.52 \
+                jinja2==2.7.2 \
+                jsonpatch \
+                lxml \
+                natsort \
+                netaddr \
+                netmiko==2.4.2 \
+                paramiko==2.7.1 \
+                passlib \
+                pexpect \
+                prettytable \
+                psutil \
+                pyasn1==0.1.9 \
+                pycryptodome \
+                pyfiglet \
+                pylint==1.8.1 \
+                pyro4 \
+                pysnmp==4.2.5 \
+                pytest-repeat \
+                pytest-html \
+                pytest-xdist==1.28.0 \
+                pytest==4.6.5 \
+                redis \
+                requests \
+                rpyc \
+                six \
+                tabulate \
+                textfsm \
+                virtualenv \
     && git clone https://github.com/p4lang/scapy-vxlan.git \
     && cd scapy-vxlan \
     && python setup.py install \
@@ -71,12 +84,24 @@ RUN pip install ipaddr \
     && pip install nnpy    \
     && pip install dpkt
 
+# Install docker-ce-cli
+RUN apt-get update                  \
+    && apt-get install -y           \
+      apt-transport-https           \
+      ca-certificates               \
+      curl                          \
+      gnupg-agent                   \
+      software-properties-common                                                                                   \
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -                                     \
+    && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"    \
+    && apt-get update                                                                                              \
+    && apt-get install -y docker-ce-cli
+
 # Install Microsoft Azure Kusto Library for Python
 RUN pip install azure-kusto-data==0.0.13 \
                 azure-kusto-ingest==0.0.13
 
-# Install pytest-ansible module
-RUN pip install pytest-ansible==2.2.2
+RUN pip install wheel==0.33.6
 
 ## Copy and install sonic-mgmt docker dependencies
 COPY \
@@ -90,7 +115,17 @@ RUN dpkg -i \
 debs/{{ deb }}{{' '}}
 {%- endfor %}
 
-RUN pip install ansible==2.8.7
+RUN pip install ansible==2.8.12
+
+RUN pip install pysubnettree
+
+# Install pytest-ansible module with 'become', 'become_user' parameters support
+RUN git clone https://github.com/ansible/pytest-ansible.git \
+    && cd pytest-ansible \
+    && git checkout d33c025f070a9c870220a157cc5a999fda68de44 \
+    && python setup.py install \
+    && cd .. \
+    && rm -fr pytest-ansible
 
 RUN mkdir /var/run/sshd
 EXPOSE 22
@@ -103,6 +138,7 @@ ARG hostname
 
 ENV BUILD_HOSTNAME $hostname
 ENV USER $user
+ENV CC=gcc CPP=cpp CXX=c++ LDSHARED="gcc -pthread -shared" PYMSSQL_BUILD_WITH_BUNDLED_FREETDS=1
 
 RUN groupadd -f -r -g $guid g$user
 
@@ -130,4 +166,6 @@ RUN azure-cli_bundle_*/installer
 # TODO: if azure-cli contains newer version azure-keyvault, remove this
 RUN ~/lib/azure-cli/bin/python -m pip install azure-keyvault==0.3.7 -U
 
-RUN git clone https://github.com/Azure/sonic-mgmt
+# Install Virtual Environment
+RUN python -m virtualenv --system-site-packages env-201811
+RUN env-201811/bin/pip install ansible==2.0.0.2
