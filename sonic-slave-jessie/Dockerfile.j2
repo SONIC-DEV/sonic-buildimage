@@ -370,6 +370,6 @@ RUN apt-get -o Acquire::Check-Valid-Until=false update
 RUN apt-get -y -o Acquire::Check-Valid-Until=false install ca-certificates-java=20161107~bpo8+1 openjdk-8-jdk
 
 #For Protobuf compiler and units.
-RUN apt-get install protobuf-compiler
-RUN apt-get install libprotobuf-dev
-RUN apt-get install pkg-config
+RUN apt-get install -y protobuf-compiler
+RUN apt-get install -y libprotobuf-dev
+RUN apt-get install -y pkg-config
