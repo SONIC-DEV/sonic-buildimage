@@ -1,0 +1,36 @@
+{
+    "chassis":{
+        "Questone2BD": {
+            "component": {
+                "BIOS": {
+                  "firmware": "unsupport online upgrade",
+                  "version": "2.04"
+                },
+                "SW_CPLD2": {
+                  "firmware": "/usr/share/sonic/device/x86_64-cel_questone2bd-r0/fw/sw_cpld2.vme",
+                  "version": "0.1"
+                },
+                "BASE_CPLD": {
+                  "firmware": "/usr/share/sonic/device/x86_64-cel_questone2bd-r0/fw/base_cpld.vme",
+                  "version": "0.2"
+                },
+                "FAN_CPLD": {
+                  "firmware": "/usr/share/sonic/device/x86_64-cel_questone2bd-r0/fw/fan_cpld.vme",
+                  "version": "1.0"
+                },
+                "CPU_CPLD": {
+                  "firmware": "/usr/share/sonic/device/x86_64-cel_questone2bd-r0/fw/cpu_cpld.vme",
+                  "version": "0.7"
+                },
+                "SW_CPLD1": {
+                  "firmware": "/usr/share/sonic/device/x86_64-cel_questone2bd-r0/fw/sw_cpld1.vme",
+                  "version": "0.1"
+                },
+                "FPGA": {
+                  "firmware": "/usr/share/sonic/device/x86_64-cel_questone2bd-r0/fw/fpga.bin",
+                  "version": "0.1"
+                }
+            }
+        }
+    }
+}
