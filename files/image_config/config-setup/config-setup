@@ -25,6 +25,7 @@
 ###########################################################################
 
 # Initialize constants
+FIRST_TIME_FILE=/etc/sonic/first_time
 UPDATEGRAPH_CONF=/etc/sonic/updategraph.conf
 INIT_CFG_JSON=/etc/sonic/init_cfg.json
 CONFIG_DB_JSON=/etc/sonic/config_db.json
@@ -226,12 +227,13 @@ generate_config()
         run_hookdir ${FACTORY_DEFAULT_HOOKS} ${CONFIG_SETUP_INITIALIZATION_FLAG}
 
         # Use preset defined in default_sku
-        if [ ! -e ${DEST_FILE} ]; then
+        if [ ! -f ${FIRST_TIME_FILE} ]; then
             sonic-cfggen -H -k ${HW_KEY} --preset ${DEFAULT_PRESET} > ${DEST_FILE}
             rv=$?
             if [ $rv -ne 0 ]; then
                 return $rv
             fi
+            touch ${FIRST_TIME_FILE}
         fi
     fi
     return 0
