@@ -22,34 +22,8 @@ class SfpUtil(SfpUtilBase):
     PORT_INFO_PATH = '/sys/class/fishbone2_fpga'
 
     _port_name = ""
-    _port_to_eeprom_mapping = {
-      1: "/sys/bus/i2c/devices/i2c-42/42-0050/eeprom", 21: "/sys/bus/i2c/devices/i2c-46/46-0050/eeprom",
-      2: "/sys/bus/i2c/devices/i2c-43/43-0050/eeprom", 22: "/sys/bus/i2c/devices/i2c-47/47-0050/eeprom",
-      3: "/sys/bus/i2c/devices/i2c-10/10-0050/eeprom", 23: "/sys/bus/i2c/devices/i2c-26/26-0050/eeprom",
-      4: "/sys/bus/i2c/devices/i2c-11/11-0050/eeprom", 24: "/sys/bus/i2c/devices/i2c-27/27-0050/eeprom",
-      5: "/sys/bus/i2c/devices/i2c-12/12-0050/eeprom", 25: "/sys/bus/i2c/devices/i2c-28/28-0050/eeprom",
-      6: "/sys/bus/i2c/devices/i2c-13/13-0050/eeprom", 26: "/sys/bus/i2c/devices/i2c-29/29-0050/eeprom",
-      7: "/sys/bus/i2c/devices/i2c-14/14-0050/eeprom", 27: "/sys/bus/i2c/devices/i2c-30/30-0050/eeprom",
-      8: "/sys/bus/i2c/devices/i2c-15/15-0050/eeprom", 28: "/sys/bus/i2c/devices/i2c-31/31-0050/eeprom",
-      9: "/sys/bus/i2c/devices/i2c-16/16-0050/eeprom", 29: "/sys/bus/i2c/devices/i2c-32/32-0050/eeprom",
-      10: "/sys/bus/i2c/devices/i2c-17/17-0050/eeprom", 30: "/sys/bus/i2c/devices/i2c-33/33-0050/eeprom",
-      11: "/sys/bus/i2c/devices/i2c-18/18-0050/eeprom", 31: "/sys/bus/i2c/devices/i2c-34/34-0050/eeprom",
-      12: "/sys/bus/i2c/devices/i2c-19/19-0050/eeprom", 32: "/sys/bus/i2c/devices/i2c-35/35-0050/eeprom",
-      13: "/sys/bus/i2c/devices/i2c-20/20-0050/eeprom", 33: "/sys/bus/i2c/devices/i2c-36/36-0050/eeprom",
-      14: "/sys/bus/i2c/devices/i2c-21/21-0050/eeprom", 34: "/sys/bus/i2c/devices/i2c-37/37-0050/eeprom",
-      15: "/sys/bus/i2c/devices/i2c-22/22-0050/eeprom", 35: "/sys/bus/i2c/devices/i2c-38/38-0050/eeprom",
-      16: "/sys/bus/i2c/devices/i2c-23/23-0050/eeprom", 36: "/sys/bus/i2c/devices/i2c-39/39-0050/eeprom",
-      17: "/sys/bus/i2c/devices/i2c-24/24-0050/eeprom", 37: "/sys/bus/i2c/devices/i2c-40/40-0050/eeprom",
-      18: "/sys/bus/i2c/devices/i2c-25/25-0050/eeprom", 38: "/sys/bus/i2c/devices/i2c-41/41-0050/eeprom",
-      19: "/sys/bus/i2c/devices/i2c-44/44-0050/eeprom", 39: "/sys/bus/i2c/devices/i2c-48/48-0050/eeprom",
-      20: "/sys/bus/i2c/devices/i2c-45/45-0050/eeprom", 40: "/sys/bus/i2c/devices/i2c-49/49-0050/eeprom",
-    }
-    _port_to_i2cbus_mapping = {
-      1: 42, 2: 43, 3: 10, 4: 11, 5: 12, 6: 13, 7: 14, 8: 15, 9: 16, 10: 17,
-      11: 18, 12: 19, 13: 20, 14: 21, 15: 22, 16: 23, 17: 24, 18: 25, 19: 44, 20: 45,
-      21: 46, 22: 47, 23: 26, 24: 27, 25: 28, 26: 29, 27: 30, 28: 31, 29: 32, 30: 33,
-      31: 34, 32: 35, 33: 36, 34: 37, 35: 38, 36: 39, 37: 40, 38: 41, 39: 48, 40: 49,
-    }
+    _port_to_eeprom_mapping = {}
+    _port_to_i2cbus_mapping = {}
 
     @property
     def port_start(self):
@@ -89,15 +63,17 @@ class SfpUtil(SfpUtilBase):
     def __init__(self):
         # Override port_to_eeprom_mapping for class initialization
         eeprom_path = '/sys/bus/i2c/devices/i2c-{0}/{0}-0050/eeprom'
-        # the following scheme is not correct,use 'i2cdetect -y -l' to detect #
-        #for x in range(self.PORT_START, self.PORT_END+1):
-        #    self.port_to_i2cbus_mapping[x] = (x + self.EEPROM_OFFSET)
-        #    self.port_to_eeprom_mapping[x] = eeprom_path.format(
-        #        x + self.EEPROM_OFFSET)
-        print("self.port_to_i2cbus_mapping: "+str(self.port_to_i2cbus_mapping)+"\n")
-        print("self.port_to_eeprom_mapping: "+str(self.port_to_eeprom_mapping)+"\n")
 
+        for x in range(self.PORT_START, self.PORT_END+1):
+            self.port_to_i2cbus_mapping[x] = (x + self.EEPROM_OFFSET)
+            self.port_to_eeprom_mapping[x] = eeprom_path.format(
+                x + self.EEPROM_OFFSET)
         SfpUtilBase.__init__(self)
+
+    def _do_write_file(self, file_handle, offset, value):
+        file_handle.seek(offset)
+        file_handle.write(hex(value))
+        file_handle.close()
 
     def get_presence(self, port_num):
 
@@ -232,3 +208,39 @@ class SfpUtil(SfpUtilBase):
                 return False
 
         return True
+
+    def reset_all(self):
+        result = True
+        port_sysfs_path = []
+        for port in range(self.port_start, self.port_end+1):
+            if port not in self.qsfp_ports:
+                continue
+
+            presence = self.get_presence(port)
+            if not presence:
+                continue
+
+            try:
+                port_name = self.get_port_name(port)
+                sysfs_path = "/".join([self.PORT_INFO_PATH,
+                                       port_name, "qsfp_reset"])
+                reg_file = open(sysfs_path, "w")
+                port_sysfs_path.append(sysfs_path)
+            except IOError as e:
+                result = False
+                continue
+
+            self._do_write_file(reg_file, 0, 0)
+
+        time.sleep(1)
+
+        for sysfs_path in port_sysfs_path:
+            try:
+                reg_file = open(sysfs_path, "w")
+            except IOError as e:
+                result = False
+                continue
+
+            self._do_write_file(reg_file, 0, 1)
+
+        return result
