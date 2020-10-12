@@ -14,7 +14,7 @@
  *   \--sys
  *       \--devices
  *            \--platform
- *                \--AS1440DF.switchboard
+ *                \--AS1440D.switchboard
  *                    |--FPGA
  *                    |--CPLD1
  *                    |--CPLD2
@@ -24,7 +24,7 @@
  */
 
 #ifndef TEST_MODE
-#define MOD_VERSION "0.5.2"
+#define MOD_VERSION "0.5.4"
 #else
 #define MOD_VERSION "TEST"
 #endif
@@ -51,6 +51,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/jiffies.h>
+#include <linux/sched.h>
 
 static int  majorNumber;
 
@@ -284,7 +285,10 @@ PORT XCVR       0x00004000 - 0x00004FFF
 /* I2C master clock speed */
 // NOTE: Only I2C clock in normal mode is support here.
 enum {
+    //I2C_DIV_100K = 0x71,
     I2C_DIV_100K = 0x71,
+    I2C_DIV_200K = 0x40,
+    I2C_DIV_400K = 0x18,
 };
 
 /* I2C Master control register */
@@ -388,6 +392,7 @@ struct i2c_dev_data {
 /* PREDEFINED I2C SWITCH DEVICE TOPOLOGY */
 static struct i2c_switch fpga_i2c_bus_dev[] = {
     /* SFP and QSFP front panel I2C */
+    {I2C_MASTER_CH_11, 0x74, 0, QSFP, "QSFP1"}, {I2C_MASTER_CH_11, 0x74, 1, QSFP, "QSFP2"},
     {I2C_MASTER_CH_11, 0x70, 0, QSFP, "QSFP3"}, {I2C_MASTER_CH_11, 0x70, 1, QSFP, "QSFP4"},
     {I2C_MASTER_CH_11, 0x70, 2, QSFP, "QSFP5"}, {I2C_MASTER_CH_11, 0x70, 3, QSFP, "QSFP6"},
     {I2C_MASTER_CH_11, 0x70, 4, QSFP, "QSFP7"}, {I2C_MASTER_CH_11, 0x70, 5, QSFP, "QSFP8"},
@@ -397,6 +402,9 @@ static struct i2c_switch fpga_i2c_bus_dev[] = {
     {I2C_MASTER_CH_11, 0x71, 2, QSFP, "QSFP13"}, {I2C_MASTER_CH_11, 0x71, 3, QSFP, "QSFP14"},
     {I2C_MASTER_CH_11, 0x71, 4, QSFP, "QSFP15"}, {I2C_MASTER_CH_11, 0x71, 5, QSFP, "QSFP16"},
     {I2C_MASTER_CH_11, 0x71, 6, QSFP, "QSFP17"}, {I2C_MASTER_CH_11, 0x71, 7, QSFP, "QSFP18"},
+
+    {I2C_MASTER_CH_11, 0x74, 2, QSFP, "QSFP19"}, {I2C_MASTER_CH_11, 0x74, 3, QSFP, "QSFP20"},
+    {I2C_MASTER_CH_11, 0x74, 4, QSFP, "QSFP21"}, {I2C_MASTER_CH_11, 0x74, 5, QSFP, "QSFP22"},
 
     {I2C_MASTER_CH_11, 0x72, 0, QSFP, "QSFP23"}, {I2C_MASTER_CH_11, 0x72, 1, QSFP, "QSFP24"},
     {I2C_MASTER_CH_11, 0x72, 2, QSFP, "QSFP25"}, {I2C_MASTER_CH_11, 0x72, 3, QSFP, "QSFP26"},
@@ -408,10 +416,12 @@ static struct i2c_switch fpga_i2c_bus_dev[] = {
     {I2C_MASTER_CH_11, 0x73, 4, QSFP, "QSFP35"}, {I2C_MASTER_CH_11, 0x73, 5, QSFP, "QSFP36"},
     {I2C_MASTER_CH_11, 0x73, 6, QSFP, "QSFP37"}, {I2C_MASTER_CH_11, 0x73, 7, QSFP, "QSFP38"},
 
-    {I2C_MASTER_CH_11, 0x74, 0, QSFP, "QSFP1"}, {I2C_MASTER_CH_11, 0x74, 1, QSFP, "QSFP2"},
-    {I2C_MASTER_CH_11, 0x74, 2, QSFP, "QSFP19"}, {I2C_MASTER_CH_11, 0x74, 3, QSFP, "QSFP20"},
-    {I2C_MASTER_CH_11, 0x74, 4, QSFP, "QSFP21"}, {I2C_MASTER_CH_11, 0x74, 5, QSFP, "QSFP22"},
     {I2C_MASTER_CH_11, 0x74, 6, QSFP, "QSFP39"}, {I2C_MASTER_CH_11, 0x74, 7, QSFP, "QSFP40"},
+
+//    {I2C_MASTER_CH_11, 0x74, 0, QSFP, "QSFP1"}, {I2C_MASTER_CH_11, 0x74, 1, QSFP, "QSFP2"},
+//    {I2C_MASTER_CH_11, 0x74, 2, QSFP, "QSFP19"}, {I2C_MASTER_CH_11, 0x74, 3, QSFP, "QSFP20"},
+//    {I2C_MASTER_CH_11, 0x74, 4, QSFP, "QSFP21"}, {I2C_MASTER_CH_11, 0x74, 5, QSFP, "QSFP22"},
+//    {I2C_MASTER_CH_11, 0x74, 6, QSFP, "QSFP39"}, {I2C_MASTER_CH_11, 0x74, 7, QSFP, "QSFP40"},
 
     /* Vritual I2C adapters */
     {I2C_MASTER_CH_1, 0xFF, 0, NONE, "I2C_1"}, // FAN
@@ -424,6 +434,7 @@ static struct i2c_switch fpga_i2c_bus_dev[] = {
 
     // NOTE: The bus below are for front panel port debug     
     {I2C_MASTER_CH_11, 0xFF, 0, NONE, "I2C_11"}, // SFF
+    {I2C_MASTER_CH_12, 0xFF, 0, NONE, "I2C_12"},
 
 };
 
@@ -431,6 +442,7 @@ static struct i2c_switch fpga_i2c_bus_dev[] = {
 #define FAN_I2C_CPLD_INDEX      SFF_PORT_TOTAL
 #define BB_I2C_CPLD_INDEX       SFF_PORT_TOTAL + 4
 #define SW_I2C_CPLD_INDEX       SFF_PORT_TOTAL + 6
+#define NUM_SWITCH_CPLDS        2
 
 struct fpga_device {
     /* data mmio region */
@@ -450,6 +462,7 @@ struct fishbone2_fpga_data {
     struct i2c_client *sff_i2c_clients[SFF_PORT_TOTAL];
     struct i2c_adapter *i2c_adapter[VIRTUAL_I2C_PORT_LENGTH];
     struct mutex fpga_lock;         // For FPGA internal lock
+    struct mutex sw_cpld_locks[NUM_SWITCH_CPLDS];
     void __iomem * fpga_read_addr;
     uint8_t cpld1_read_addr;
     uint8_t cpld2_read_addr;
@@ -1139,13 +1152,11 @@ static int i2c_core_init(unsigned int master_bus, unsigned int freq_div,void __i
 
     // Makes sure core is disable
     ctrl = ioread8(pci_bar + REG_CTRL);
-    iowrite8( ctrl & ~(1 << I2C_CTRL_EN | 1 << I2C_CTRL_IEN), pci_bar + REG_CTRL);
+    iowrite8( ctrl & ~(1 << I2C_CTRL_EN), pci_bar + REG_CTRL);
 
     iowrite8( freq_div & 0xFF , pci_bar + REG_FREQ_L);
     iowrite8( freq_div >> 8, pci_bar + REG_FREQ_H);
 
-    /* Only enable EN bit, we only use polling mode */
-    iowrite8(1 << I2C_CMD_IACK, pci_bar + REG_CMD);
     iowrite8(1 << I2C_CTRL_EN, pci_bar + REG_CTRL);
 
     return 0;
@@ -1156,7 +1167,7 @@ static void i2c_core_deinit(unsigned int master_bus,void __iomem *pci_bar){
     unsigned int REG_CTRL;
     REG_CTRL = I2C_MASTER_CTRL + (master_bus - 1) * 0x20;
     // Disable core
-    iowrite8( ioread8(pci_bar + REG_CTRL) & ~(1 << I2C_CTRL_EN| 1 << I2C_CTRL_IEN), pci_bar + REG_CTRL);
+    iowrite8( ioread8(pci_bar + REG_CTRL) & ~(1 << I2C_CTRL_EN), pci_bar + REG_CTRL);
 }
 
 //FIXME: The hard code seperater below will causing bug!
@@ -1165,36 +1176,57 @@ static int i2c_xcvr_access(u8 register_address, unsigned int portid, u8 *data, c
     
     u16 dev_addr = 0;
     int err;
+    unsigned int sw_cpld_lock_index = 0;
+
     /* check for portid valid length */
     if(portid < 0 || portid > SFF_PORT_TOTAL){
         return -EINVAL;
     }
-    if (portid <= 16 ){
+    if (portid <= 20 ){
         dev_addr = CPLD1_SLAVE_ADDR;
+        sw_cpld_lock_index = 0;
     }else{
         dev_addr = CPLD2_SLAVE_ADDR;
-        portid = portid - 16;
+        portid = portid - 20;
+        sw_cpld_lock_index = 1;
     }
+
+    mutex_lock(&fpga_data->sw_cpld_locks[sw_cpld_lock_index]);
+
     // Select port
-    err = fpga_i2c_access(fpga_data->i2c_adapter[SW_I2C_CPLD_INDEX], dev_addr, 0x00, I2C_SMBUS_WRITE, 
-        I2C_XCVR_SEL, I2C_SMBUS_BYTE_DATA, (union i2c_smbus_data*)&portid);
+    err = fpga_i2c_access(fpga_data->i2c_adapter[SW_I2C_CPLD_INDEX],
+                          dev_addr,
+                          0x00,
+                          I2C_SMBUS_WRITE,
+                          I2C_XCVR_SEL,
+                          I2C_SMBUS_BYTE_DATA,
+                          (union i2c_smbus_data*)&portid);
     if(err < 0){
-        return err;
+        goto exit_unlock;
     }
     // Read/write port xcvr register
-    err = fpga_i2c_access(fpga_data->i2c_adapter[SW_I2C_CPLD_INDEX], dev_addr, 0x00, rw, 
-        register_address , I2C_SMBUS_BYTE_DATA, (union i2c_smbus_data*)data);
+    err = fpga_i2c_access(fpga_data->i2c_adapter[SW_I2C_CPLD_INDEX],
+                          dev_addr,
+                          0x00,
+                          rw,
+                          register_address,
+                          I2C_SMBUS_BYTE_DATA,
+                          (union i2c_smbus_data*)data);
     if(err < 0){
-        return err;
+        goto exit_unlock;
     }
-    return 0;
+
+exit_unlock:
+    mutex_unlock(&fpga_data->sw_cpld_locks[sw_cpld_lock_index]);
+    return err;
 }
 
-static int i2c_wait_ack(struct i2c_adapter *a, unsigned long timeout, int writing) {
+static int i2c_wait_stop(struct i2c_adapter *a, unsigned long timeout, int writing) {
     int error = 0;
     int Status;
+    unsigned int master_bus;
 
-    struct i2c_dev_data *new_data = i2c_get_adapdata(a);
+    struct i2c_dev_data *new_data;
     void __iomem *pci_bar = fpga_dev.data_base_addr;
 
     unsigned int REG_FREQ_L;
@@ -1204,7 +1236,16 @@ static int i2c_wait_ack(struct i2c_adapter *a, unsigned long timeout, int writin
     unsigned int REG_STAT;
     unsigned int REG_DATA;
 
-    unsigned int master_bus = new_data->pca9548.master_bus;
+    /* Sanity check for the NULL pointer */
+    if (a == NULL)
+        return -ESHUTDOWN;
+    else
+        new_data = i2c_get_adapdata(a);
+
+    if (new_data == NULL)
+        return -ESHUTDOWN;
+
+    master_bus = new_data->pca9548.master_bus;
 
     if (master_bus < I2C_MASTER_CH_1 || master_bus > I2C_MASTER_CH_TOTAL) {
         error = -EINVAL;
@@ -1221,22 +1262,87 @@ static int i2c_wait_ack(struct i2c_adapter *a, unsigned long timeout, int writin
     check(pci_bar + REG_STAT);
     check(pci_bar + REG_CTRL);
 
-    /*
-     * We wait for the data to be transferred (8bit),
-     * then we start polling on the ACK/NACK bit
-     * udelay((8 * 1000) / 100);
-     */
-    udelay(80);
-    dev_dbg(&a->dev,"Wait for 0x%2.2X\n", 1 << I2C_STAT_TIP);
+    dev_dbg(&a->dev,"ST:%2.2X\n", ioread8(pci_bar + REG_STAT));
+    timeout = jiffies + msecs_to_jiffies(timeout);
+    while (1) {
+        Status = ioread8(pci_bar + REG_STAT);
+        dev_dbg(&a->dev,"ST:%2.2X\n", Status);
+        if (time_after(jiffies, timeout)) {
+            info("Status %2.2X", Status);
+            info("Error Timeout");
+            error = -ETIMEDOUT;
+            break;
+        }
 
+        if ( (Status & ( 1 << I2C_STAT_BUSY ))  == 0 ) 
+        {
+            dev_dbg(&a->dev,"  IF:%2.2X\n", Status);
+            break;
+        }
+
+        cpu_relax();
+        cond_resched();
+    }
+    info("Status %2.2X", Status);
+    info("STA:%x",Status);
+
+    if (error < 0) {
+        info("Status %2.2X", Status);
+        return error;
+    }
+    return 0;
+}
+
+static int i2c_wait_ack(struct i2c_adapter *a, unsigned long timeout, int writing) {
+    int error = 0;
+    int Status;
+    unsigned int master_bus;
+
+    struct i2c_dev_data *new_data;
+    void __iomem *pci_bar = fpga_dev.data_base_addr;
+
+    unsigned int REG_FREQ_L;
+    unsigned int REG_FREQ_H;
+    unsigned int REG_CMD;
+    unsigned int REG_CTRL;
+    unsigned int REG_STAT;
+    unsigned int REG_DATA;
+
+    /* Sanity check for the NULL pointer */
+    if (a == NULL)
+        return -ESHUTDOWN;
+    else
+        new_data = i2c_get_adapdata(a);
+
+    if (new_data == NULL)
+        return -ESHUTDOWN;
+
+    master_bus = new_data->pca9548.master_bus;
+
+    if (master_bus < I2C_MASTER_CH_1 || master_bus > I2C_MASTER_CH_TOTAL) {
+        error = -EINVAL;
+        return error;
+    }
+
+    REG_FREQ_L = I2C_MASTER_FREQ_L  + (master_bus - 1) * 0x20;
+    REG_FREQ_H = I2C_MASTER_FREQ_H  + (master_bus - 1) * 0x20;
+    REG_CTRL   = I2C_MASTER_CTRL    + (master_bus - 1) * 0x20;
+    REG_CMD    = I2C_MASTER_CMD     + (master_bus - 1) * 0x20;
+    REG_STAT   = I2C_MASTER_STATUS  + (master_bus - 1) * 0x20;
+    REG_DATA   = I2C_MASTER_DATA    + (master_bus - 1) * 0x20;
+
+    check(pci_bar + REG_STAT);
+    check(pci_bar + REG_CTRL);
+
+    dev_dbg(&a->dev,"ST:%2.2X\n", ioread8(pci_bar + REG_STAT));
     timeout = jiffies + msecs_to_jiffies(timeout);
     while (1) {
         Status = ioread8(pci_bar + REG_STAT);
         dev_dbg(&a->dev, "ST:%2.2X\n", Status);
 
-        /* Wait for the TIP bit to be cleared before timeout */
-        if ( (Status & ( 1 << I2C_STAT_TIP ))  == 0 ) {
-            dev_dbg(&a->dev, "  TIP cleared:0x%2.2X\n", Status);
+        if ( (Status & ( 1 << I2C_STAT_TIP ))  == 0 ) 
+        {
+            dev_dbg(&a->dev,"  IF:%2.2X\n", Status);
             break;
         }
 
@@ -1254,8 +1360,8 @@ static int i2c_wait_ack(struct i2c_adapter *a, unsigned long timeout, int writin
     info("STA:%x",Status);
 
     if (error < 0) {
-        dev_dbg(&a->dev, "%s TIMEOUT bit 0x%x not clear in specific time\n",
-                 __func__, (1 << I2C_STAT_TIP));
+        info("Status %2.2X", Status);
+
         return error;
     }
 
@@ -1285,69 +1391,6 @@ static int i2c_wait_ack(struct i2c_adapter *a, unsigned long timeout, int writin
     return error;
 }
 
-static int i2c_wait_stop(struct i2c_adapter *a, unsigned long timeout, int writing) {
-    int error = 0;
-    int Status;
-
-    struct i2c_dev_data *new_data = i2c_get_adapdata(a);
-    void __iomem *pci_bar = fpga_dev.data_base_addr;
-
-    unsigned int REG_FREQ_L;
-    unsigned int REG_FREQ_H;
-    unsigned int REG_CMD;
-    unsigned int REG_CTRL;
-    unsigned int REG_STAT;
-    unsigned int REG_DATA;
-
-    unsigned int master_bus = new_data->pca9548.master_bus;
-
-    if (master_bus < I2C_MASTER_CH_1 || master_bus > I2C_MASTER_CH_TOTAL) {
-        error = -EINVAL;
-        return error;
-    }
-
-    REG_FREQ_L = I2C_MASTER_FREQ_L  + (master_bus - 1) * 0x20;
-    REG_FREQ_H = I2C_MASTER_FREQ_H  + (master_bus - 1) * 0x20;
-    REG_CTRL   = I2C_MASTER_CTRL    + (master_bus - 1) * 0x20;
-    REG_CMD    = I2C_MASTER_CMD     + (master_bus - 1) * 0x20;
-    REG_STAT   = I2C_MASTER_STATUS  + (master_bus - 1) * 0x20;
-    REG_DATA   = I2C_MASTER_DATA    + (master_bus - 1) * 0x20;
-
-    check(pci_bar + REG_STAT);
-    check(pci_bar + REG_CTRL);
-
-    dev_dbg(&a->dev,"Wait for 0x%2.2X\n", 1 << I2C_STAT_BUSY);
-    timeout = jiffies + msecs_to_jiffies(timeout);
-    while (1) {
-        Status = ioread8(pci_bar + REG_STAT);
-        dev_dbg(&a->dev, "ST:%2.2X\n", Status);
-        if (time_after(jiffies, timeout)) {
-            info("Status %2.2X", Status);
-            info("Error Timeout");
-            error = -ETIMEDOUT;
-            break;
-        }
-
-        /* Wait for the BUSY bit to be cleared before timeout */
-        if ( (Status & ( 1 << I2C_STAT_BUSY ))  == 0 ) {
-            dev_dbg(&a->dev, "  BUSY cleared:0x%2.2X\n", Status);
-            break;
-        }
-
-        cpu_relax();
-        cond_resched();
-    }
-    info("Status %2.2X", Status);
-    info("STA:%x",Status);
-
-    if (error < 0) {
-        dev_dbg(&a->dev, "%s TIMEOUT bit 0x%x not clear in specific time\n",
-                 __func__, (1 << I2C_STAT_BUSY));
-        return error;
-    }
-    return 0;
-}
-
 /* SMBUS Xfer for opencore I2C with polling */
 // TODO: Change smbus_xfer to master_xfer - This will support i2c and all smbus emu functions.
 static int smbus_access(struct i2c_adapter *adapter, u16 addr,
@@ -1360,7 +1403,6 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
     struct i2c_dev_data *dev_data;
     void __iomem *pci_bar;
     unsigned int  portid, master_bus;
-    int error_stop = 0;
 
     unsigned int REG_FREQ_L;
     unsigned int REG_FREQ_H;
@@ -1376,10 +1418,18 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
     REG_STAT   = 0;
     REG_DATA   = 0;
 
-    /* Write the command register */
+    /* Sanity check for the NULL pointer */
+    if (adapter == NULL)
+        return -ESHUTDOWN;
+    else
     dev_data = i2c_get_adapdata(adapter);
+
+    if (dev_data == NULL)
+        return -ESHUTDOWN;
+
     portid = dev_data->portid;
     pci_bar = fpga_dev.data_base_addr;
+    master_bus = dev_data->pca9548.master_bus;
 
 #ifdef DEBUG_KERN
     printk(KERN_INFO "portid %2d|@ 0x%2.2X|f 0x%4.4X|(%d)%-5s| (%d)%-10s|CMD %2.2X "
@@ -1394,9 +1444,6 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
            , cmd);
 #endif
 
-    master_bus = dev_data->pca9548.master_bus;
-    error = i2c_core_init(master_bus, I2C_DIV_100K, fpga_dev.data_base_addr);
-
     /* Map the size to what the chip understands */
     switch (size) {
     case I2C_SMBUS_QUICK:
@@ -1408,16 +1455,14 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
         break;
     default:
         printk(KERN_INFO "Unsupported transaction %d\n", size);
-        error = -EOPNOTSUPP;
-        goto Done;
+        return -EOPNOTSUPP;
     }
-
-    master_bus = dev_data->pca9548.master_bus;
 
     if (master_bus < I2C_MASTER_CH_1 || master_bus > I2C_MASTER_CH_TOTAL) {
-        error = -EINVAL;
-        goto Done;
+        return -EINVAL;
     }
+
+    error = i2c_core_init(master_bus, I2C_DIV_100K, fpga_dev.data_base_addr);
 
     REG_FREQ_L = I2C_MASTER_FREQ_L  + (master_bus - 1) * 0x20;
     REG_FREQ_H = I2C_MASTER_FREQ_H  + (master_bus - 1) * 0x20;
@@ -1435,7 +1480,7 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
         // sent device address with Write mode
         iowrite8( (addr << 1) & 0xFE, pci_bar + REG_DATA);
     }
-    iowrite8( 1 << I2C_CMD_STA | 1 << I2C_CMD_WR | 1 << I2C_CMD_IACK, pci_bar + REG_CMD);
+    iowrite8( 1 << I2C_CMD_STA | 1 << I2C_CMD_WR, pci_bar + REG_CMD);
 
     info( "MS Start");
 
@@ -1458,7 +1503,7 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
         // sent command code to data register
         iowrite8(cmd, pci_bar + REG_DATA);
         // Start the transfer
-        iowrite8(1 << I2C_CMD_WR | 1 << I2C_CMD_IACK, pci_bar + REG_CMD);
+        iowrite8(1 << I2C_CMD_WR, pci_bar + REG_CMD);
         info( "MS Send CMD 0x%2.2X", cmd);
 
         // Wait {A}
@@ -1490,7 +1535,7 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
 
         iowrite8(cnt, pci_bar + REG_DATA);
         //Start the transfer
-        iowrite8(1 << I2C_CMD_WR | 1 << I2C_CMD_IACK, pci_bar + REG_CMD);
+        iowrite8(1 << I2C_CMD_WR, pci_bar + REG_CMD);
         info( "MS Send CNT 0x%2.2X", cnt);
 
         // Wait {A}
@@ -1521,7 +1566,7 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
             info("STA:%x", ioread8(pci_bar + REG_STAT) );
             info( "   Data > %2.2X", data->block[bid]);
             iowrite8(data->block[bid], pci_bar + REG_DATA);
-            iowrite8(1 << I2C_CMD_WR | 1 << I2C_CMD_IACK, pci_bar + REG_CMD);
+            iowrite8(1 << I2C_CMD_WR, pci_bar + REG_CMD);
 
             // Wait {A}
             // IACK
@@ -1545,7 +1590,7 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
         // sent Address with Read mode
         iowrite8( addr << 1 | 0x1 , pci_bar + REG_DATA);
         // SET START | WRITE
-        iowrite8( 1 << I2C_CMD_STA | 1 << I2C_CMD_WR | 1 << I2C_CMD_IACK, pci_bar + REG_CMD);
+        iowrite8( 1 << I2C_CMD_STA | 1 << I2C_CMD_WR, pci_bar + REG_CMD);
 
         // Wait {A}
         error = i2c_wait_ack(adapter, 30, 1);
@@ -1586,7 +1631,7 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
             // Start receive FSM
             if (bid == cnt - 1) {
                 info( "READ NACK");
-                iowrite8(1 << I2C_CMD_RD | 1 << I2C_CMD_ACK | 1 << I2C_CMD_IACK, pci_bar + REG_CMD);
+                iowrite8(1 << I2C_CMD_RD | 1 << I2C_CMD_ACK, pci_bar + REG_CMD);
             }else{
 
                 iowrite8(1 << I2C_CMD_RD, pci_bar + REG_CMD);
@@ -1619,12 +1664,9 @@ static int smbus_access(struct i2c_adapter *adapter, u16 addr,
 Done:
     info( "MS STOP");
     // SET STOP
-    iowrite8( 1 << I2C_CMD_STO | 1 << I2C_CMD_IACK, pci_bar + REG_CMD);
+    iowrite8( 1 << I2C_CMD_STO, pci_bar + REG_CMD);
     // Wait for the STO to finish.
-    error_stop = i2c_wait_stop(adapter, 30, 0);
-    if (error_stop < 0) {
-        dev_dbg(&adapter->dev,"STOP Error: %d\n", error_stop);
-    }
+    i2c_wait_stop(adapter, 30, 0);
     check(pci_bar + REG_CTRL);
     check(pci_bar + REG_STAT);
 #ifdef DEBUG_KERN
@@ -1658,14 +1700,23 @@ static int fpga_i2c_access(struct i2c_adapter *adapter, u16 addr,
     uint8_t read_channel;
     int retry = 0;
 
+    /* Sanity check for the NULL pointer */
+    if (adapter == NULL)
+        return -ESHUTDOWN;
+    else
     dev_data = i2c_get_adapdata(adapter);
+
+    if (dev_data == NULL)
+        return -ESHUTDOWN;
+    
     master_bus = dev_data->pca9548.master_bus;
     switch_addr = dev_data->pca9548.switch_addr;
     channel = dev_data->pca9548.channel;
     calling_name = dev_data->pca9548.calling_name;
     
     // Acquire the master resource.
-    mutex_lock(&fpga_i2c_master_locks[master_bus - 1]);
+    // Here we just use one mutex, it's a workaround for the sfp eeprom read/write issue.
+    mutex_lock(&fpga_i2c_master_locks[0]);
     prev_port = fpga_i2c_lasted_access_port[master_bus - 1];
     prev_switch = (unsigned char)(prev_port >> 8) & 0xFF;
     prev_ch = (unsigned char)(prev_port & 0xFF);
@@ -1695,7 +1746,7 @@ static int fpga_i2c_access(struct i2c_adapter *adapter, u16 addr,
                 if(error >= 0){
                     break;
                 }else{
-                    dev_dbg(&adapter->dev,"Failed to select ch %d of 0x%x, CODE %d\n", prev_ch, prev_switch, error);
+                    dev_dbg(&adapter->dev,"Failed to select ch %d of 0x%x, CODE %d\n", channel, switch_addr, error);
                 }
 
             }
@@ -1715,7 +1766,7 @@ static int fpga_i2c_access(struct i2c_adapter *adapter, u16 addr,
                     if(error >= 0){
                         break;
                     }else{
-                        dev_dbg(&adapter->dev,"Failed to select ch %d of 0x%x, CODE %d\n", prev_ch, prev_switch, error);
+                        dev_dbg(&adapter->dev,"Failed to select ch %d of 0x%x, CODE %d\n", channel, switch_addr, error);
                     }
                 }
                 if(retry < 0){
@@ -1786,14 +1837,20 @@ static int fpga_i2c_access(struct i2c_adapter *adapter, u16 addr,
         /**
          * Fishbone2: Device specific I2C reset topology
          */
-        if( master_bus == I2C_MASTER_CH_11 ){
+        if( master_bus == I2C_MASTER_CH_11 || master_bus == I2C_MASTER_CH_12 ){
             dev_notice(&adapter->dev, "Trying bus recovery...\n");
             dev_notice(&adapter->dev, "Reset I2C switch device.\n");
 
             // reset PCA9548 on the current BUS.
-            iowrite8( ioread8(fpga_dev.data_base_addr + 0x0108) & 0xF0, fpga_dev.data_base_addr + 0x0108);
-            udelay(1);
-            iowrite8( ioread8(fpga_dev.data_base_addr + 0x0108) | 0x0F, fpga_dev.data_base_addr + 0x0108);
+            if( master_bus == I2C_MASTER_CH_11){
+                iowrite8( ioread8(fpga_dev.data_base_addr + 0x0108) & 0xF0, fpga_dev.data_base_addr + 0x0108);
+                udelay(1);
+                iowrite8( ioread8(fpga_dev.data_base_addr + 0x0108) | 0x0F, fpga_dev.data_base_addr + 0x0108);
+            }else if(master_bus == I2C_MASTER_CH_12){
+                iowrite8( ioread8(fpga_dev.data_base_addr + 0x0108) & 0x8F, fpga_dev.data_base_addr + 0x0108);
+                udelay(1);
+                iowrite8( ioread8(fpga_dev.data_base_addr + 0x0108) | 0x70, fpga_dev.data_base_addr + 0x0108);
+            }
             // clear the last access port 
             fpga_i2c_lasted_access_port[master_bus - 1] = 0;
         }else{
@@ -1803,7 +1860,7 @@ static int fpga_i2c_access(struct i2c_adapter *adapter, u16 addr,
 
 
 release_unlock:    
-    mutex_unlock(&fpga_i2c_master_locks[master_bus - 1]);
+    mutex_unlock(&fpga_i2c_master_locks[0]);
     dev_dbg(&adapter->dev,"switch ch %d of 0x%x -> ch %d of 0x%x\n", prev_ch, prev_switch, channel, switch_addr);
     return retval;
 }
@@ -1945,8 +2002,13 @@ static int fishbone2_drv_probe(struct platform_device *pdev)
     fpga_data->cpld2_read_addr = 0x00;
 
     mutex_init(&fpga_data->fpga_lock);
+
+    for (ret = 0; ret < NUM_SWITCH_CPLDS; ret++) {
+        mutex_init(&fpga_data->sw_cpld_locks[ret]);
+    }
     for (ret = I2C_MASTER_CH_1 ; ret <= I2C_MASTER_CH_TOTAL; ret++) {
         mutex_init(&fpga_i2c_master_locks[ret - 1]);
+        fpga_i2c_lasted_access_port[ret - 1] = 0;
     }
 
     res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -2256,7 +2318,9 @@ static int fpga_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
     printk(KERN_INFO "");
     fpga_version = ioread32(fpga_dev.data_base_addr);
     printk(KERN_INFO "FPGA Version : %8.8x\n", fpga_version);
-    fpgafw_init();
+    if ((err = fpgafw_init()) < 0){
+        goto pci_release;
+    }
     platform_device_register(&fishbone2_dev);
     platform_driver_register(&fishbone2_drv);
     return 0;
@@ -2265,7 +2329,7 @@ pci_release:
     pci_release_regions(pdev);
 pci_disable:
     pci_disable_device(pdev);
-    return -EBUSY;
+    return err;
 }
 
 static void fpga_pci_remove(struct pci_dev *pdev)
@@ -2399,7 +2463,6 @@ static int fpgafw_init(void) {
 
 static void fpgafw_exit(void) {
     device_destroy(fpgafwclass, MKDEV(majorNumber, 0));     // remove the device
-    class_unregister(fpgafwclass);                          // unregister the device class
     class_destroy(fpgafwclass);                             // remove the device class
     unregister_chrdev(majorNumber, DEVICE_NAME);            // unregister the major number
     printk(KERN_INFO "Goodbye!\n");
