@@ -15,6 +15,13 @@ case "$1" in
 start)
         echo -n "Setting up board... "
 
+        cat > /etc/update-motd.d/10-uname   << EOF
+#!/bin/sh
+uname -snrvm
+echo "set serial console size"
+stty rows 20 columns 150
+EOF
+
         # Add driver to support HW
         modprobe dimm-bus
         modprobe i2c-imc allow_unsafe_access=1
