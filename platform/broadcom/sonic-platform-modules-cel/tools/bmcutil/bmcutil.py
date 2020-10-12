@@ -22,6 +22,7 @@ class BmcUtilBase(object):
         self.bmc_pwd_url = "http://240.1.1.1:8080/api/sys/userpassword"
         self.bmc_pwd_path = "/usr/local/etc/bmcpwd"
         self.bmc_syslog_url = "http://240.1.1.1:8080/api/sys/syslog"
+        self.bmc_reboot_url = "http://240.1.1.1:8080/api/bmc/reboot"
 
     def request_data(self, url):
         # Reqest data from BMC if not exist.
@@ -270,12 +271,14 @@ class BmcUtilBase(object):
         """
             Reboot BMC
         """
-        json_data = dict()
-        json_data["data"] = "reboot"
-        r = requests.post(self.bmc_raw_command_url, json=json_data)
-        if r.status_code != 200:
+        try:
+            r = requests.post(self.bmc_reboot_url)
+            if r.status_code != 200:
+                return False
+        except Exception as e:
+            if "Connection aborted." in e.message[0]:
+                return True
             return False
-
         return True
 
     def set_location_led(self, admin_state):
