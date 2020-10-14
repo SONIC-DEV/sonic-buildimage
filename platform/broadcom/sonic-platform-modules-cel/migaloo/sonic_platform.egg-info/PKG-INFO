@@ -1,0 +1,23 @@
+Metadata-Version: 1.2
+Name: sonic-platform
+Version: 1.0
+Summary: SONiC platform API implementation on Celestica Platforms
+Home-page: https://github.com/Azure/sonic-buildimage
+Author: SONiC Team
+Author-email: linuxnetdev@microsoft.com
+Maintainer: Wirut Getbamrung
+Maintainer-email: wgetbumr@celestica.com
+License: Apache 2.0
+Description: UNKNOWN
+Keywords: sonic SONiC platform PLATFORM
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Plugins
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Topic :: Utilities

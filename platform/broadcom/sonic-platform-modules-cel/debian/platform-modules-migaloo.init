@@ -1,0 +1,64 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          setup-board
+# Required-Start:    $portmap
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start:     S
+# Default-Stop:      0 6
+# Short-Description: Setup Migaloo board.
+### END INIT INFO
+
+case "$1" in
+start)
+        echo -n "Setting up board... "
+
+        cat > /etc/update-motd.d/10-uname   << EOF
+#!/bin/sh
+uname -snrvm
+echo "set serial console size"
+stty rows 20 columns 150
+#if [! -f /usr/sbin/ntpdate]; then
+#   dpkg -i /usr/share/sonic/device/x86_64-alibaba_as14-40d-cl-r0/ntpdate_4.2.8p10+dfsg-3+deb9u2_amd64.deb
+#fi
+EOF
+
+        # Add driver to support HW
+        modprobe dimm-bus
+        modprobe i2c-imc allow_unsafe_access=1
+        modprobe i2c-dev
+        modprobe baseboard_cpld
+        modprobe switchboard_fpga
+        modprobe mc24lc64t
+
+        # Add driver to support TLV - EEPROM
+        echo 24lc64t 0x56 > /sys/bus/i2c/devices/i2c-0/new_device
+        # add PCA9536 to SMBbus #
+        echo jtag_sel 0x41 > /sys/bus/i2c/devices/i2c-0/new_device
+
+        decode-syseeprom --init 2> /dev/null &
+
+        /bin/sh /usr/local/bin/platform_api_mgnt.sh init
+
+        echo 0x108 0xFF > /sys/devices/platform/AS24128D.switchboard/FPGA/setreg
+
+        echo "done."
+        ;;
+
+stop)
+        echo "done."
+        ;;
+
+force-reload|restart)
+        echo "Not supported"
+        ;;
+
+*)
+        echo "Usage: /etc/init.d/platform-modules-migaloo.init {start|stop}"
+        exit 1
+        ;;
+esac
+
+exit 0
