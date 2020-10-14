@@ -1,230 +1,51 @@
-#!/usr/bin/env python
-
-__author__ = 'Wirut G.<wgetbumr@celestica.com>'
-__license__ = "GPL"
-__version__ = "0.1.2"
-__status__ = "Development"
+#!/usr/bin/python
 
 import requests
 import re
+import json
 
 
 class FanUtil():
-    """Platform-specific FanUtil class"""
+    BMC_REQ_BASE_URI = "http://240.1.1.1:8080/api"
+    ROTOR_PER_FAN = 2
 
     def __init__(self):
+        self.fan_info_uri = "/".join([self.BMC_REQ_BASE_URI, "fan/info"])
+        self.fan_num_uri = "/".join([self.BMC_REQ_BASE_URI, "fan/number"])
 
-        self.fan_fru_url = "http://240.1.1.1:8080/api/sys/fruid/fan"
-        self.sensor_url = "http://240.1.1.1:8080/api/sys/sensors"
-        self.fru_data_list = None
-        self.sensor_data_list = None
+    def _get_fan_info(self):
+        resp = requests.get(self.fan_info_uri)
+        if not resp:
+            return False
 
-    def request_data(self):
-        # Reqest data from BMC if not exist.
-        if self.fru_data_list is None or self.sensor_data_list is None:
-            fru_data_req = requests.get(self.fan_fru_url)
-            sensor_data_req = requests.get(self.sensor_url)
-            fru_json = fru_data_req.json()
-            sensor_json = sensor_data_req.json()
-            self.fru_data_list = fru_json.get('Information')
-            self.sensor_data_list = sensor_json.get('Information')
-        return self.fru_data_list, self.sensor_data_list
+        fan_json = resp.json()
+        if not fan_json or not "data" in fan_json:
+            return False
 
-    def name_to_index(self, fan_name):
-        # Get fan index from fan name
-        match = re.match(r"(FAN)([0-9]+)-(1|2)", fan_name, re.I)
-        fan_index = None
-        if match:
-            i_list = list(match.groups())
-            fan_index = int(i_list[1])*2 - (int(i_list[2]) % 2)
-        return fan_index
+        self.fan_info = fan_json["data"]
+
+        return True
 
     def get_num_fans(self):
-        """   
-            Get the number of fans
-            :return: int num_fans
         """
-        num_fans = 10
+        Get total fan number
 
-        return num_fans
+        @return number of fan, -1 for failure
+        """
+        resp = requests.get(self.fan_num_uri)
+        if not resp:
+            return -1
 
-    def get_fan_speed(self, fan_name):
-        """
-            Get the current speed of the fan, the unit is "RPM"  
-            :return: int fan_speed
-        """
+        fan_nr_json = resp.json()
+        if not fan_nr_json or "data" not in fan_nr_json:
+            return -1
 
         try:
-            # Get real fan index
-            index = self.name_to_index(fan_name)
+            nr_fan = fan_nr_json["data"]["Number"]
+        except Exception as e:
+            nr_fan = -1
 
-            # Set key and index.
-            fan_speed = 0
-            position_key = "Front" if index % 2 != 0 else "Rear"
-            index = int(round(float(index)/2))
-            fan_key = "Fan " + str(index) + " " + position_key
-
-            # Request and validate fan information.
-            self.fru_data_list, self.sensor_data_list = self.request_data()
-
-            # Get fan's speed.
-            for sensor_data in self.sensor_data_list:
-                sensor_name = sensor_data.get('name')
-                if "fan" in str(sensor_name):
-                    fan_data = sensor_data.get(fan_key)
-                    fan_sp_list = map(int, re.findall(r'\d+', fan_data))
-                    fan_speed = fan_sp_list[0]
-
-        except:
-            return 0
-
-        return fan_speed
-
-    def get_fan_low_threshold(self, fan_name):
-        """
-            Get the low speed threshold of the fan.
-            if the current speed < low speed threshold, 
-            the status of the fan is not ok.
-            :return: int fan_low_threshold
-        """
-
-        try:
-            # Get real fan index
-            index = self.name_to_index(fan_name)
-
-            # Set key and index.
-            fan_low_threshold = 0
-            position_key = "Front" if index % 2 != 0 else "Rear"
-            index = int(round(float(index)/2))
-            fan_key = "Fan " + str(index) + " " + position_key
-
-            # Request and validate fan information.
-            self.fru_data_list, self.sensor_data_list = self.request_data()
-
-            # Get fan's threshold.
-            for sensor_data in self.sensor_data_list:
-                sensor_name = sensor_data.get('name')
-                if "fan" in str(sensor_name):
-                    fan_data = sensor_data.get(fan_key)
-                    fan_sp_list = map(int, re.findall(r'\d+', fan_data))
-                    fan_low_threshold = fan_sp_list[1]
-
-        except:
-            return "N/A"
-
-        return fan_low_threshold
-
-    def get_fan_high_threshold(self, fan_name):
-        """
-            Get the hight speed threshold of the fan, 
-            if the current speed > high speed threshold, 
-            the status of the fan is not ok
-            :return: int fan_high_threshold 
-        """
-
-        try:
-            # Get real fan index
-            index = self.name_to_index(fan_name)
-
-            # Set key and index.
-            fan_high_threshold = 0
-            position_key = "Front" if index % 2 != 0 else "Rear"
-            index = int(round(float(index)/2))
-            fan_key = "Fan " + str(index) + " " + position_key
-
-            # Request and validate fan information.
-            self.fru_data_list, self.sensor_data_list = self.request_data()
-
-            # Get fan's threshold.
-            for sensor_data in self.sensor_data_list:
-                sensor_name = sensor_data.get('name')
-                if "fan" in str(sensor_name):
-                    fan_data = sensor_data.get(fan_key)
-                    fan_sp_list = map(int, re.findall(r'\d+', fan_data))
-                    fan_high_threshold = fan_sp_list[2]
-
-        except:
-            return 0
-
-        return fan_high_threshold
-
-    def get_fan_pn(self, fan_name):
-        """
-            Get the product name of the fan
-            :return: str fan_pn
-        """
-
-        try:
-            # Get real fan index
-            index = self.name_to_index(fan_name)
-
-            # Set key and index.
-            fan_pn = "N/A"
-            index = int(round(float(index)/2))
-            fan_fru_key = "Fantray" + str(index)
-
-            # Request and validate fan information.
-            self.fru_data_list, self.sensor_data_list = self.request_data()
-
-            # Get fan's fru.
-            for fan_fru in self.fru_data_list:
-                matching_fan = [s for s in fan_fru if fan_fru_key in s]
-                if matching_fan:
-                    pn = [s for s in fan_fru if "Part" in s]
-                    fan_pn = pn[0].split()[4]
-
-        except:
-            return "N/A"
-
-        return fan_pn
-
-    def get_fan_sn(self, fan_name):
-        """
-            Get the serial number of the fan
-            :return: str fan_sn
-        """
-        try:
-            # Get real fan index
-            index = self.name_to_index(fan_name)
-
-            # Set key and index.
-            fan_sn = "N/A"
-            index = int(round(float(index)/2))
-            fan_fru_key = "Fantray" + str(index)
-
-            # Request and validate fan information.
-            self.fru_data_list, self.sensor_data_list = self.request_data()
-
-            # Get fan's fru.
-            for fan_fru in self.fru_data_list:
-                matching_fan = [s for s in fan_fru if fan_fru_key in s]
-                if matching_fan:
-                    serial = [s for s in fan_fru if "Serial" in s]
-                    fan_sn = serial[0].split()[3]
-
-        except:
-            return "N/A"
-
-        return fan_sn
-
-    def get_fans_name_list(self):
-        """
-            Get list of fan name.
-            :return: list fan_names
-        """
-        fan_names = []
-
-        # Get the number of fans
-        n_fan = self.get_num_fans()
-
-        # Set fan name and add to the list.
-        for x in range(1, n_fan + 1):
-            f_index = int(round(float(x)/2))
-            pos = 1 if x % 2 else 2
-            fan_name = 'FAN{}_{}'.format(f_index, pos)
-            fan_names.append(fan_name)
-
-        return fan_names
+        return nr_fan
 
     def get_all(self):
         """
@@ -239,71 +60,61 @@ class FanUtil():
             PN, conditional, if PRESENT is True, PN of the FAN, string
             SN, conditional, if PRESENT is True, SN of the FAN, string)
         """
+        fan_info = {}
+        if not self._get_fan_info():
+            return fan_info
 
-        self.fru_data_list, self.sensor_data_list = self.request_data()
-        all_fan_dict = dict()
+        if "Number" not in self.fan_info:
+            return fan_info
 
-        # Get the number of fans
-        n_fan = self.get_num_fans()
-        all_fan_dict["Number"] = n_fan
+        fan_nr = self.fan_info["Number"]
+        for fan_idx in range(1, fan_nr+1):
+            fan_name = "FAN%d" % fan_idx
+            if not fan_name in self.fan_info:
+                print("%s not in self.fan_info" % fan_name)
+                continue
+            fi = self.fan_info[fan_name]
+            if "Rotors" not in fi:
+                print("Rotors not in fi")
+                continue
+            rotor_nr = fi["Rotors"]
 
-        # Set fan FRU data.
-        fan_fru_dict = dict()
-        fan_raw_idx = 1
-        for fan_fru in self.fru_data_list:
-            fru_dict = dict()
-            fan_ps = False
+            # +++ add by maxwill for u'Rotors': 0 issue +++ #
+            if rotor_nr == 0:
+                 rotor_nr = 2
+            # --- add by maxwill for u'Rotors': 0 issue --- #
 
-            if len(fan_fru) == 0:
-                fan_idx = fan_raw_idx
-                fan_pn = "N/A"
-                fan_sn = "N/A"
-            else:
-                fan_key = fan_fru[0].split()
-                if str(fan_key[-1]).lower() == "absent":
-                    fan_idx = int(re.findall('\d+', fan_key[0])[0])
+            for ridx in range(1, rotor_nr+1):
+                sub_name = "%s_%d" % (fan_name, ridx)
+                rname = "Rotor%d" % ridx
+                sub_fan_info = {}
+                if rname not in fi:
+                    print("%s not in fi" % rname)
+                    continue
+                try:
+                    sub_fan_info["Present"] = True if fi["Present"] == "yes" else False
+                    sub_fan_info["Running"] = fi[rname]["Running"]
+                    sub_fan_info["Speed"] = fi[rname]["Speed"]
+                    sub_fan_info["LowThd"] = fi[rname]["SpeedMin"]
+                    sub_fan_info["HighThd"] = fi[rname]["SpeedMax"]
+                    sub_fan_info["PN"] = fi["PN"]
+                    sub_fan_info["SN"] = fi["SN"]
+                    sub_fan_info["AirFlow"] = fi["AirFlow"]
+                    if (fi[rname]["HwAlarm"] == "no") and \
+                        (sub_fan_info["Speed"] != None and sub_fan_info["LowThd"] != None and sub_fan_info["Speed"] >= sub_fan_info["LowThd"]) and \
+                        (sub_fan_info["Speed"] != None and sub_fan_info["HighThd"] != None and sub_fan_info["Speed"] <= sub_fan_info["HighThd"]):
+                        sub_fan_info["Status"] = True
+                    else:
+                        sub_fan_info["Status"] = False
 
-                else:
-                    fan_idx = int(re.findall('\d+', fan_key[-1])[0])
-                    fan_ps = True
-                    pn = [s for s in fan_fru if "Part" in s]
-                    sn = [s for s in fan_fru if "Serial" in s]
-                    fan_pn = pn[0].split(
-                        ":")[-1].strip() if len(pn) > 0 else 'N/A'
-                    fan_sn = sn[0].split(
-                        ":")[-1].strip() if len(sn) > 0 else 'N/A'
+                    fan_info[sub_name] = sub_fan_info
+                except Exception as e:
+                    print("GOT EXCEPTON: %s" % str(e))
+                    continue
+        fan_info["Number"] = fan_nr * self.ROTOR_PER_FAN
 
-            fru_dict["PN"] = "N/A" if not fan_pn or fan_pn == "" else fan_pn
-            fru_dict["SN"] = "N/A" if not fan_sn or fan_sn == "" else fan_sn
-            fru_dict["Present"] = fan_ps
-            fan_fru_dict[fan_idx] = fru_dict
-            fan_raw_idx += 1
+        #j = json.dumps(fan_info, sort_keys=True, indent=4, separators=(',', ': '))
+        #print j
 
-        # Set fan sensor data.
-        for sensor_data in self.sensor_data_list:
-            sensor_name = sensor_data.get('name')
-            if "fan" in str(sensor_name):
-                for x in range(1, n_fan + 1):
-                    fan_dict = dict()
-                    f_index = int(round(float(x)/2))
-                    pos = 1 if x % 2 else 2
-                    position_key = "Front" if x % 2 != 0 else "Rear"
-                    fan_key = "Fan " + str(f_index) + " " + position_key
-                    fan_data = sensor_data.get(fan_key)
-                    fan_sp_list = map(int, re.findall(r'\d+', fan_data))
-                    fan_dict["Present"] = fan_fru_dict[f_index]["Present"]
-                    if fan_dict["Present"] or fan_sp_list[0] > 0:
-                        fan_dict["Present"] = True
-                        fan_dict["Speed"] = fan_sp_list[0]
-                        fan_dict["Running"] = True if fan_dict["Speed"] > 0 else False
-                        fan_dict["LowThd"] = fan_sp_list[1]
-                        fan_dict["HighThd"] = fan_sp_list[2]
-                        fan_dict["PN"] = fan_fru_dict[f_index]["PN"]
-                        fan_dict["SN"] = fan_fru_dict[f_index]["SN"]
-                        fan_dict["AirFlow"] = "FTOB" if "R1240-G0009" in fan_dict["PN"] else "Unknown"
-                        fan_dict["Status"] = True if fan_dict["AirFlow"] != "Unknown" else False
-                    fan_name = 'FAN{}_{}'.format(f_index, pos)
-                    all_fan_dict[fan_name] = fan_dict
-                break
+        return fan_info
 
-        return all_fan_dict
