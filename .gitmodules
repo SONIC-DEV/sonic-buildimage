@@ -84,4 +84,4 @@
 	url = https://github.com/Azure/sonic-ztp
 [submodule "platform/broadcom/sonic-platform-modules-cel"]
 	path = platform/broadcom/sonic-platform-modules-cel
-	url = https://github.com/celestica-Inc/sonic-platform-modules-cel.git
+	url = https://github.com/celestica-fb/sonic-platform-modules-cel.git
