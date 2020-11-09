@@ -55,7 +55,7 @@ sonic_get_version() {
     local latest_tag=$(git describe --tags --abbrev=0)
     local branch_name=$(git rev-parse --abbrev-ref HEAD)
     if [ -n "$(git status --untracked-files=no -s --ignore-submodules)" ]; then
-        local dirty="-dirty-$BUILD_TIMESTAMP"
+        local dirty="-$BUILD_TIMESTAMP"
     fi
     BUILD_NUMBER=${BUILD_NUMBER:-0}
     ## Check if we are on tagged commit

@@ -813,7 +813,7 @@ class FwMgrUtil(FwMgrUtilBase):
             # @return a string, "master" or "slave"
         """
         bios_ver = "N/A"
-        data = self.get_from_bmc(self.bmc_info_uri)
+        data = self.get_from_bmc(self.bios_boot_uri)
         if not data or "Flash" not in data:
             return bios_ver
 
