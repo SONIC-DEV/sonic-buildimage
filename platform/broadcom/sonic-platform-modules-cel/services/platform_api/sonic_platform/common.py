@@ -3,9 +3,6 @@ import imp
 import yaml
 import subprocess
 
-from sonic_py_common import device_info
-
-
 class Common:
 
     DEVICE_PATH = '/usr/share/sonic/device/'
@@ -29,7 +26,7 @@ class Common:
 
     def __init__(self, conf=None):
         self._main_conf = conf
-        (self.platform, self.hwsku) = device_info.get_platform_and_hwsku()
+        (self.platform, self.hwsku) = self._get_platform_hwsku()
 
     def _run_command(self, command):
         status = False
@@ -43,6 +40,22 @@ class Common:
         except Exception:
             pass
         return status, output
+
+    def _get_platform_hwsku(self):
+        hwsku = None
+        platform = None
+        command = "show platform summary"
+        p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+        output = p.stdout.readlines()
+        for line in output:
+            tokens = line.split()
+            if not tokens:
+                continue
+            if tokens[0].lower() == 'hwsku:':
+                hwsku = tokens[1]
+            elif tokens[0].lower() == 'platform:':
+                platform = tokens[1]
+        return (platform, hwsku)
 
     def _clean_input(self, input, config):
         cleaned_input = input

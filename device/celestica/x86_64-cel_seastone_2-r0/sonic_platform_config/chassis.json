@@ -1,5 +1,4 @@
 {
-    "eeprom": "/sys/class/i2c-adapter/i2c-0/0-0056/eeprom",
     "get_reboot_cause": {
         "output_source": "ipmitool",
         "command": "ipmitool raw 0x3a 0x0c 0x0 0x2 0x06",
@@ -29,17 +28,5 @@
             "88": "The last reset is CPU thermal overload",
             "99": "The last reset is ASIC thermal overload"
         }
-    },
-    "get_watchdog": {
-        "output_source": "class",
-        "host_path": "/usr/share/sonic/device/x86_64-cel_seastone_2-r0/sonic_platform_config/watchdog.py",
-        "pmon_path": "/usr/share/sonic/platform/sonic_platform_config/watchdog.py",
-        "class": "Watchdog"
-    },
-    "get_change_event": {
-        "output_source": "class",
-        "host_path": "/usr/share/sonic/device/x86_64-cel_seastone_2-r0/sonic_platform_config/event.py",
-        "pmon_path": "/usr/share/sonic/platform/sonic_platform_config/event.py",
-        "class": "SfpEvent"
     }
 }
