@@ -130,27 +130,6 @@ class Watchdog(WatchdogBase):
 
         return seconds
 
-    def _gettimeleft(self):
-        """
-        Get time left before watchdog timer expires
-        @return time left in seconds
-        """
-        if self.mmc_v <= V06_MMC_VERSION:
-            timeout_hex = V06_WDT_WIDTH_SELECTOR.get(seconds)
-            self._api_common.set_reg(
-                self.setreg_path, V06_WDT_WIDTH, timeout_hex)
-
-        else:
-            (l, m, h) = self._seconds_to_lmh_hex(seconds)
-            self._api_common.set_reg(
-                self.setreg_path, WDT_TIMER_H_BIT_REG, h)  # set high bit
-            self._api_common.set_reg(
-                self.setreg_path, WDT_TIMER_M_BIT_REG, m)  # set med bit
-            self._api_common.set_reg(
-                self.setreg_path, WDT_TIMER_L_BIT_REG, l)  # set low bit
-
-        return int(req[0])
-
     #################################################################
 
     def arm(self, seconds):
@@ -167,7 +146,7 @@ class Watchdog(WatchdogBase):
         """
         ret = WDT_COMMON_ERROR
 
-        if seconds < 0 or seconds > 100:
+        if seconds < 0 or seconds > 180:
             return ret
 
         try:

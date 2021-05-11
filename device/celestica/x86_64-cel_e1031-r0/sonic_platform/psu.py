@@ -301,7 +301,7 @@ class Psu(PsuBase):
             A float number, the high threshold output voltage in volts,
             e.g. 12.1
         """
-        psu_voltage = 0.0
+        psu_voltage = 12.6
         voltage_name = "in{}_crit"
         voltage_label = "vout1"
 
@@ -313,8 +313,9 @@ class Psu(PsuBase):
             in_num = ''.join(list(filter(str.isdigit, basename)))
             vout_path = os.path.join(
                 dir_name, voltage_name.format(in_num))
-            vout_val = self._api_common.read_txt_file(vout_path)
-            psu_voltage = float(vout_val) / 1000
+            if os.path.exists(vout_path):
+                vout_val = self._api_common.read_txt_file(vout_path)
+                psu_voltage = float(vout_val) / 1000
 
         return psu_voltage
 
@@ -325,7 +326,7 @@ class Psu(PsuBase):
             A float number, the low threshold output voltage in volts,
             e.g. 12.1
         """
-        psu_voltage = 0.0
+        psu_voltage = 11.4
         voltage_name = "in{}_lcrit"
         voltage_label = "vout1"
 
@@ -337,7 +338,17 @@ class Psu(PsuBase):
             in_num = ''.join(list(filter(str.isdigit, basename)))
             vout_path = os.path.join(
                 dir_name, voltage_name.format(in_num))
-            vout_val = self._api_common.read_txt_file(vout_path)
-            psu_voltage = float(vout_val) / 1000
+            if os.path.exists(vout_path):
+                vout_val = self._api_common.read_txt_file(vout_path)
+                psu_voltage = float(vout_val) / 1000
 
         return psu_voltage
+
+    def get_maximum_supplied_power(self):
+        """
+        Retrieves the maximum supplied power by PSU
+        Returns:
+            A float number, the maximum power output in Watts.
+            e.g. 1200.1
+        """
+        return 200.0
