@@ -1,0 +1,11 @@
+{
+    "chassis": {
+        "E1031": {
+            "component": {
+                "BIOS": {},
+                "SMC_CPLD": {},
+                "MMC_CPLD": {}
+            }
+        }
+    }
+}
