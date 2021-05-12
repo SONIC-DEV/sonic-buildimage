@@ -1044,8 +1044,7 @@ class Sfp(SfpBase):
                 # Write to eeprom
                 sysfsfile_eeprom.seek(SFP_CHANNL_STATUS_OFFSET)
                 sysfsfile_eeprom.write(buffer[0])
-            except BaseException:
-                #print("Error: unable to open file: %s" % str(e))
+            except Exception:
                 return False
             finally:
                 if sysfsfile_eeprom:
