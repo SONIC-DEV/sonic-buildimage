@@ -6,11 +6,9 @@
 #
 #############################################################################
 
-import time
-import subprocess
-from ctypes import create_string_buffer
-
 try:
+    import time
+    from ctypes import create_string_buffer
     from sonic_platform_base.sfp_base import SfpBase
     from sonic_platform_base.sonic_sfp.sff8472 import sff8472InterfaceId
     from sonic_platform_base.sonic_sfp.sff8472 import sff8472Dom
@@ -246,7 +244,7 @@ class Sfp(SfpBase):
             raw = sysfsfile_eeprom.read(num_bytes)
             for n in range(0, num_bytes):
                 eeprom_raw[n] = hex(ord(raw[n]))[2:].zfill(2)
-        except:
+        except BaseException:
             pass
         finally:
             if sysfsfile_eeprom:
@@ -914,7 +912,6 @@ class Sfp(SfpBase):
             A Boolean, True if tx_disable is enabled, False if disabled
         """
         tx_disable = False
-        tx_fault = False
         status_control_raw = self.__read_eeprom_specific_bytes(
             SFP_CHANNL_STATUS_OFFSET, SFP_CHANNL_STATUS_WIDTH)
         if status_control_raw:
@@ -1047,7 +1044,7 @@ class Sfp(SfpBase):
                 # Write to eeprom
                 sysfsfile_eeprom.seek(SFP_CHANNL_STATUS_OFFSET)
                 sysfsfile_eeprom.write(buffer[0])
-            except:
+            except BaseException:
                 #print("Error: unable to open file: %s" % str(e))
                 return False
             finally:
