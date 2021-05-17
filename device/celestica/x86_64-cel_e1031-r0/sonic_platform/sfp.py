@@ -242,8 +242,12 @@ class Sfp(SfpBase):
                 sysfs_sfp_i2c_client_eeprom_path, mode="rb", buffering=0)
             sysfsfile_eeprom.seek(offset)
             raw = sysfsfile_eeprom.read(num_bytes)
-            for n in range(0, num_bytes):
-                eeprom_raw[n] = hex(ord(raw[n]))[2:].zfill(2)
+            if isinstance(raw, str):
+                for n in range(0, num_bytes):
+                    eeprom_raw[n] = hex(ord(raw[n]))[2:].zfill(2)
+            else:
+                for n in range(0, num_bytes):
+                    eeprom_raw[n] = hex(raw[n])[2:].zfill(2)
         except BaseException:
             pass
         finally:
