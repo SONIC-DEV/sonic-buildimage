@@ -1,0 +1,9 @@
+depmod -a
+
+systemctl enable platform-modules-meituan-ms25bcl-48y8c.service
+systemctl start platform-modules-meituan-ms25bcl-48y8c.service
+
+systemctl enable fanctrl.service
+systemctl start fanctrl.service
+
+/usr/local/bin/platform_api_mgnt.sh install
