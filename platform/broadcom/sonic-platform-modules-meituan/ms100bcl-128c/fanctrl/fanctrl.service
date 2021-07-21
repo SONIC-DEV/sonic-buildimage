@@ -1,0 +1,10 @@
+[Unit]
+Description=Service for fancontrol
+After=platform-modules-meituan-ms100bcl-128c.service
+
+[Service]
+Type=forking
+ExecStart=/usr/local/bin/fand_v2
+
+[Install]
+WantedBy=multi-user.target

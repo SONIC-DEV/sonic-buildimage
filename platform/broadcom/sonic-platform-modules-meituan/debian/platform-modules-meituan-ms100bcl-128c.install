@@ -1,0 +1,9 @@
+ms100bcl-128c/cfg/ms100bcl-128c-modules.conf etc/modules-load.d
+ms100bcl-128c/cfg/ms100bcl-128c-modprobe.conf etc/modprobe.d
+ms100bcl-128c/systemd/platform-modules-cel-ms100bcl-128c.service lib/systemd/system
+ms100bcl-128c/fanctrl/fanctrl.service lib/systemd/system
+ms100bcl-128c/scripts/get_fan_speed.sh usr/local/bin
+ms100bcl-128c/scripts/set_fan_speed.sh usr/local/bin
+ms100bcl-128c/cfg/pid_config_b3010.ini usr/local/etc
+ms100bcl-128c/modules/sonic_platform-1.0-py2-none-any.whl usr/share/sonic/device/x86_64-cel_ms100bcl-128c-r0
+services/platform_api/platform_api_mgnt.sh usr/local/bin

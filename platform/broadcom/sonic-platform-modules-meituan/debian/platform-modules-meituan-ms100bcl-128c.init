@@ -1,0 +1,185 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          setup-board
+# Required-Start:    $portmap
+# Required-Stop:
+# Should-Start:
+# Should-Stop:
+# Default-Start:     S
+# Default-Stop:      0 6
+# Short-Description: Setup ms100bcl-128c board.
+### END INIT INFO
+
+
+PMBUS_CORE_KO_PATH="/lib/modules/4.9.0-9-amd64/kernel/drivers/hwmon/pmbus/pmbus_core.ko"
+MAX1363_KO_PATH="/lib/modules/4.9.0-9-amd64/kernel/drivers/iio/adc/max1363.ko"
+case "$1" in
+start)
+        echo -n "Setting up board... "
+
+        # Loads kernel modules
+        modprobe i2c-dev
+        modprobe pmbus_core
+        modprobe i2c-imc allow_unsafe_access=1
+        modprobe baseboard_cpld
+        modprobe switchboard_fpga allow_unsafe_i2c_access=1
+        modprobe mc24lc64t
+        modprobe i2c_dev_sysfs
+        modprobe syscpld
+        modprobe fancpld
+        modprobe jc42
+        # remove 4.9.168 pmbus_core.ko and install 4.9.189 pmbus_core.ko #
+        if [ -e $PMBUS_CORE_KO_PATH ]; then
+            rm -fr $PMBUS_CORE_KO_PATH
+            if [ $? -ne 0 ]; then
+               printf "remove 4.9.168 pmbus_core.ko failed! rc=%d \n" $?
+               exit -1
+            fi
+        fi
+        if [ -e $MAX1363_KO_PATH ]; then
+           rm -fr $MAX1363_KO_PATH
+           if [ $? -ne 0 ]; then
+              printf "remove 4.9.168 max1363.ko failed! rc=%d \n" $?
+              exit -1
+           fi
+        fi
+        modprobe dps1100
+        modprobe ir358x
+        modprobe ir3595
+        modprobe isl68137
+        modprobe max31730
+        modprobe max1363
+
+        # Add driver to support TLV - EEPROM
+        echo 24lc64t 0x56 > /sys/bus/i2c/devices/i2c-0/new_device
+        # add i2cdevice for TSOD
+        echo jc42 0x18 > /sys/bus/i2c/devices/i2c-1/new_device
+
+        # Init the PCA9548 on FAN, PSU, and Power busses.
+        # I2C_1<->i2c-138  I2C_2<->i2c-139  I2C_3<->i2c-140  I2C_4<->i2c-141  I2C_5<->i2c-142
+        # I2C_6<->i2c-143  I2C_7<->i2c-144  I2C_8<->i2c-145  I2C_11<->i2c-146  I2C_12<->i2c-147
+        # I2C_13<->i2c-148  I2C_14<->i2c-149
+        # I2C_1_PCA9548_chnl_0<->i2c-2  I2C_2_PCA9548_chnl_0<->i2c-150  I2C_3_PCA9548_chnl_0<->i2c-158
+        # I2C_4_PCA9548_chnl_0<->i2c-166  I2C_6_PCA9548_chnl_0<->i2c-174
+        echo pca9548 0x77 > /sys/bus/i2c/devices/i2c-138/new_device
+        echo pca9548 0x77 > /sys/bus/i2c/devices/i2c-139/new_device
+        echo pca9548 0x77 > /sys/bus/i2c/devices/i2c-140/new_device
+        echo pca9548 0x77 > /sys/bus/i2c/devices/i2c-141/new_device
+        echo pca9548 0x77 > /sys/bus/i2c/devices/i2c-143/new_device
+
+        ## Populate FAN CPLD device
+        echo fancpld 0x0d > /sys/bus/i2c/devices/i2c-138/new_device
+
+        ## Populate SYSTEM cpld(BB_CPLD) device
+        echo syscpld 0x0d > /sys/bus/i2c/devices/i2c-142/new_device
+
+        ## Populate PSU PMBus for regulator
+        sleep 1
+        echo dps1100 0x58 > /sys/bus/i2c/devices/i2c-158/new_device
+        sleep 1
+        echo dps1100 0x58 > /sys/bus/i2c/devices/i2c-159/new_device
+        sleep 1
+        echo dps1100 0x58 > /sys/bus/i2c/devices/i2c-160/new_device
+        sleep 1
+        echo dps1100 0x58 > /sys/bus/i2c/devices/i2c-161/new_device
+        sleep 1
+        #echo dps1100 0x58 > /sys/bus/i2c/devices/i2c-162/new_device
+        #sleep 1
+        #echo dps1100 0x58 > /sys/bus/i2c/devices/i2c-163/new_device
+        #sleep 1
+        # Populate temperature sensors
+        # I2C_1<->i2c-138  I2C_2<->i2c-139  I2C_3<->i2c-140  I2C_4<->i2c-141  I2C_5<->i2c-142
+        # I2C_6<->i2c-143  I2C_7<->i2c-144  I2C_8<->i2c-145  I2C_11<->i2c-146  I2C_12<->i2c-147
+        # I2C_13<->i2c-148  I2C_14<->i2c-149
+        # I2C_1_PCA9548_chnl_0<->i2c-2  I2C_2_PCA9548_chnl_0<->i2c-150  I2C_3_PCA9548_chnl_0<->i2c-158
+        # I2C_4_PCA9548_chnl_0<->i2c-166  I2C_6_PCA9548_chnl_0<->i2c-174
+        echo lm75b 0x48 > /sys/bus/i2c/devices/i2c-9/new_device
+        echo lm75b 0x49 > /sys/bus/i2c/devices/i2c-9/new_device
+        echo max31730 0x4c > /sys/bus/i2c/devices/i2c-139/new_device
+        # add TMP275 on I2C_2
+        echo lm75b 0x4d > /sys/bus/i2c/devices/i2c-139/new_device
+        echo lm75b 0x4e > /sys/bus/i2c/devices/i2c-139/new_device
+        echo lm75b 0x4f > /sys/bus/i2c/devices/i2c-139/new_device
+        # add LM75B
+        echo lm75b 0x48 > /sys/bus/i2c/devices/i2c-150/new_device
+        echo lm75b 0x49 > /sys/bus/i2c/devices/i2c-150/new_device
+        echo lm75b 0x48 > /sys/bus/i2c/devices/i2c-151/new_device
+        echo lm75b 0x49 > /sys/bus/i2c/devices/i2c-151/new_device
+        echo lm75b 0x48 > /sys/bus/i2c/devices/i2c-165/new_device
+        echo lm75b 0x49 > /sys/bus/i2c/devices/i2c-165/new_device
+
+        # Populate voltage sensors(monitor ADC) reading
+        echo max11617 0x35 > /sys/bus/i2c/devices/i2c-143/new_device
+
+        # Populate fan EEPROM
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-2/new_device
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-3/new_device
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-4/new_device
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-5/new_device
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-6/new_device
+        echo 24lc64t 0x56 > /sys/bus/i2c/devices/i2c-9/new_device
+
+        ## populate PSU eeprom
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-158/new_device
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-159/new_device
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-160/new_device
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-161/new_device
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-162/new_device
+        echo 24lc64t 0x50 > /sys/bus/i2c/devices/i2c-163/new_device
+
+        ## populate system eeprom
+        # I2C_1<->i2c-138  I2C_2<->i2c-139  I2C_3<->i2c-140  I2C_4<->i2c-141  I2C_5<->i2c-142
+        # I2C_6<->i2c-143  I2C_7<->i2c-144  I2C_8<->i2c-145  I2C_11<->i2c-146  I2C_12<->i2c-147
+        # I2C_13<->i2c-148  I2C_14<->i2c-149
+        # I2C_1_PCA9548_chnl_0<->i2c-2  I2C_2_PCA9548_chnl_0<->i2c-150  I2C_3_PCA9548_chnl_0<->i2c-158
+        # I2C_4_PCA9548_chnl_0<->i2c-166  I2C_6_PCA9548_chnl_0<->i2c-174
+        echo 24lc64t 0x57 > /sys/bus/i2c/devices/i2c-141/new_device
+        ## populate bmc eeprom
+        echo 24lc64t 0x53 > /sys/bus/i2c/devices/i2c-141/new_device
+        ## populate switch eeprom
+        echo 24lc64t 0x51 > /sys/bus/i2c/devices/i2c-141/new_device
+        ## populate linecard1 eeprom
+        echo 24lc64t 0x52 > /sys/bus/i2c/devices/i2c-166/new_device
+        ## populate linecard2 eeprom
+        echo 24lc64t 0x52 > /sys/bus/i2c/devices/i2c-167/new_device
+
+        # populate DC/DC regulator #
+        echo ir38062 0x42 > /sys/bus/i2c/devices/i2c-143/new_device
+        echo ir3584 0x70 > /sys/bus/i2c/devices/i2c-174/new_device
+        echo ir38062 0x49 > /sys/bus/i2c/devices/i2c-174/new_device
+        echo isl68137 0x60 > /sys/bus/i2c/devices/i2c-175/new_device
+        echo ir38062 0x49 > /sys/bus/i2c/devices/i2c-175/new_device
+        echo ir38060 0x45 > /sys/bus/i2c/devices/i2c-175/new_device
+        echo ir3584 0x70 > /sys/bus/i2c/devices/i2c-177/new_device
+        echo ir3584 0x50 > /sys/bus/i2c/devices/i2c-177/new_device
+        echo ir3584 0x30 > /sys/bus/i2c/devices/i2c-177/new_device
+        echo ir3584 0x70 > /sys/bus/i2c/devices/i2c-178/new_device
+        echo ir3584 0x50 > /sys/bus/i2c/devices/i2c-178/new_device
+        echo ir38060 0x45 > /sys/bus/i2c/devices/i2c-178/new_device
+        echo ir3584 0x70 > /sys/bus/i2c/devices/i2c-179/new_device
+        echo ir3584 0x50 > /sys/bus/i2c/devices/i2c-179/new_device
+        echo ir3584 0x30 > /sys/bus/i2c/devices/i2c-179/new_device
+        echo ir3584 0x70 > /sys/bus/i2c/devices/i2c-180/new_device
+        echo ir3584 0x50 > /sys/bus/i2c/devices/i2c-180/new_device
+        echo ir38060 0x45 > /sys/bus/i2c/devices/i2c-180/new_device
+        echo ir38060 0x45 > /sys/bus/i2c/devices/i2c-181/new_device
+
+        echo "done."
+        ;;
+
+stop)
+        echo "done."
+        ;;
+
+force-reload|restart)
+        echo "Not supported"
+        ;;
+
+*)
+        echo "Usage: /etc/init.d/platform-modules-meituan-ms100bcl-128c.init {start|stop}"
+        exit 1
+        ;;
+esac
+
+exit 0

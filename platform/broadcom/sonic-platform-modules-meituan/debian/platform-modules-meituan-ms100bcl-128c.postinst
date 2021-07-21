@@ -1,0 +1,7 @@
+depmod -a
+
+systemctl enable platform-modules-meituan-ms100bcl-128c.service
+systemctl start platform-modules-meituan-ms100bcl-128c.service
+
+systemctl enable fanctrl.service
+systemctl start fanctrl.service

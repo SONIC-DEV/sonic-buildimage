@@ -1,0 +1,9 @@
+ms25bcl-48y8c/cfg/ms25bcl-48y8c-modules.conf etc/modules-load.d
+ms25bcl-48y8c/cfg/ms25bcl-48y8c-modprobe.conf etc/modprobe.d
+ms25bcl-48y8c/systemd/platform-modules-meituan-ms25bcl-48y8c.service lib/systemd/system
+ms25bcl-48y8c/fanctrl/fanctrl.service lib/systemd/system
+ms25bcl-48y8c/scripts/get_fan_speed.sh usr/local/bin
+ms25bcl-48y8c/scripts/set_fan_speed.sh usr/local/bin
+ms25bcl-48y8c/cfg/pid_config_ms25bcl-48y8c.ini usr/local/etc
+ms25bcl-48y8c/modules/sonic_platform-1.0-py2-none-any.whl usr/share/sonic/device/x86_64-meituan_ms25bcl-48y8c-r0
+services/platform_api/platform_api_mgnt.sh usr/local/bin
